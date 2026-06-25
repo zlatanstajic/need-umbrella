@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Need Umbrella? — Serbia Weather</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-2: #273449;
+      --accent: #38bdf8;
+      --accent-2: #0ea5e9;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --rain: #38bdf8;
+      --dry: #fbbf24;
+      --error: #f87171;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, var(--bg), #020617);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hidden { display: none !important; }
+
+    header {
+      text-align: center;
+      padding: 1.5rem 1rem 0.5rem;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.25rem, 5vw, 1.6rem);
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 720px;
+      margin-inline: auto;
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-content: start;
+      gap: 1rem;
+    }
+
+    /* Location selector tabs */
+    .selector {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-height: 44px;
+      padding: 0.6rem 0.5rem;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .tab-btn:hover { background: #2f3f57; }
+
+    .tab-btn.active {
+      border-color: var(--accent);
+      background: #2f3f57;
+      color: var(--accent);
+    }
+
+    .panel {
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    select, input, button {
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    select, input[type="number"] {
+      padding: 0.55rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: var(--panel-2);
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .btn {
+      min-height: 44px;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent-2);
+      color: #001018;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:hover { background: var(--accent); }
+
+    .inline-error {
+      color: var(--error);
+      font-size: 0.85rem;
+      min-height: 1rem;
+    }
+
+    .notice {
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid var(--dry);
+      color: var(--dry);
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.85rem;
+    }
+
+    /* States */
+    .state {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .error-state {
+      border: 1px solid var(--error);
+      color: var(--error);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto 0.75rem;
+      border: 4px solid #334155;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Weather display */
+    #weather {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .location-badge {
+      display: inline-block;
+      background: var(--panel-2);
+      border-radius: 999px;
+      padding: 0.35rem 0.9rem;
+      font-size: 0.9rem;
+      color: var(--accent);
+      justify-self: center;
+    }
+
+    .current {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .current .emoji { font-size: clamp(2.75rem, 9vw, 4rem); line-height: 1; }
+
+    .current .temp {
+      font-size: clamp(2.25rem, 8vw, 3.5rem);
+      font-weight: 700;
+      margin: 0.25rem 0;
+    }
+
+    .current .desc {
+      color: var(--muted);
+      text-transform: capitalize;
+      margin: 0;
+    }
+
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .tile {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .tile .tile-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tile .tile-value {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-top: 0.3rem;
+    }
+
+    /* Precipitation */
+    .precip {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .precip h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .precip-banner {
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .precip-banner.rain {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--rain);
+      color: var(--rain);
+    }
+
+    .precip-banner.dry {
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid var(--dry);
+      color: var(--dry);
+    }
+
+    .chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      min-height: 130px;
+    }
+
+    .bar-col {
+      flex: 0 0 auto;
+      width: 34px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 120px;
+    }
+
+    .bar-amount {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-bottom: 2px;
+      min-height: 0.8rem;
+    }
+
+    .bar {
+      width: 100%;
+      background: linear-gradient(to top, var(--accent-2), var(--accent));
+      border-radius: 4px 4px 0 0;
+      min-height: 2px;
+    }
+
+    .bar-hour {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem 1rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    footer a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Need Umbrella? ☔</h1>
+    <p>Live weather and 24-hour rain outlook for Serbia</p>
+  </header>
+
+  <main>
+    <section class="selector">
+      <div class="tabs">
+        <button type="button" class="tab-btn active" data-tab="gps">📍 GPS</button>
+        <button type="button" class="tab-btn" data-tab="city">🏙️ City</button>
+        <button type="button" class="tab-btn" data-tab="manual">🧭 Manual</button>
+      </div>
+
+      <div class="panel" id="panel-gps">
+        <p style="margin:0;color:var(--muted);font-size:0.85rem;">Use your device location to get local weather.</p>
+        <div class="row">
+          <button type="button" class="btn" id="gps-btn">Use my location</button>
+        </div>
+      </div>
+
+      <div class="panel hidden" id="panel-city">
+        <div class="row">
+          <label for="city-select">Choose a Serbian city:</label>
+        </div>
+        <div class="row">
+          <select id="city-select"></select>
+        </div>
+      </div>
+
+      <div class="panel hidden" id="panel-manual">
+        <div class="row">
+          <label for="lat-input">Latitude</label>
+          <input type="number" id="lat-input" step="any" placeholder="-90 to 90">
+        </div>
+        <div class="row">
+          <label for="lon-input">Longitude</label>
+          <input type="number" id="lon-input" step="any" placeholder="-180 to 180">
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="manual-btn">Get weather</button>
+        </div>
+        <div class="inline-error" id="manual-error"></div>
+      </div>
+    </section>
+
+    <div class="notice hidden" id="notice"></div>
+
+    <div class="state" id="loading">
+      <div class="spinner"></div>
+      <div>Loading weather…</div>
+    </div>
+
+    <div class="state error-state hidden" id="error"></div>
+
+    <section id="weather" class="hidden">
+      <span class="location-badge" id="location-badge"></span>
+
+      <div class="current">
+        <div class="emoji" id="cur-emoji"></div>
+        <div class="temp" id="cur-temp"></div>
+        <p class="desc" id="cur-desc"></p>
+      </div>
+
+      <div class="tiles">
+        <div class="tile">
+          <div class="tile-label">Humidity</div>
+          <div class="tile-value" id="tile-humidity"></div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Wind</div>
+          <div class="tile-value" id="tile-wind"></div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Pressure</div>
+          <div class="tile-value" id="tile-pressure"></div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">Cloud cover</div>
+          <div class="tile-value" id="tile-cloud"></div>
+        </div>
+      </div>
+
+      <section class="precip">
+        <h2>Next 24 hours</h2>
+        <div class="precip-banner" id="precip-banner"></div>
+        <div class="chart" id="chart"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Weather data from
+      <a href="https://www.met.no/" target="_blank" rel="noopener">MET Norway</a>,
+      licensed under
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+    </p>
+    <p>
+      <a href="https://github.com/zlatanstajic/need-umbrella" target="_blank" rel="noopener">Source on GitHub</a>
+    </p>
+  </footer>
+
+  <script>
+    "use strict";
+
+    // ---- Constants ----------------------------------------------------------
+    var BELGRADE = { lat: 44.8176, lon: 20.4633, name: "Belgrade" };
+
+    var CITIES = [
+      { name: "Belgrade", lat: 44.8176, lon: 20.4633 },
+      { name: "Novi Sad", lat: 45.2671, lon: 19.8335 },
+      { name: "Kragujevac", lat: 44.0128, lon: 20.9114 },
+      { name: "Nis", lat: 43.3209, lon: 21.8954 },
+      { name: "Pozarevac", lat: 44.6212, lon: 21.1867 },
+      { name: "Jagodina", lat: 43.9772, lon: 21.2611 }
+    ];
+
+    var PRECIP_THRESHOLD_MM = 0.1;
+
+    // ---- DOM references -----------------------------------------------------
+    var elLoading = document.getElementById("loading");
+    var elError = document.getElementById("error");
+    var elWeather = document.getElementById("weather");
+    var elNotice = document.getElementById("notice");
+    var elBadge = document.getElementById("location-badge");
+    var elEmoji = document.getElementById("cur-emoji");
+    var elTemp = document.getElementById("cur-temp");
+    var elDesc = document.getElementById("cur-desc");
+    var elHumidity = document.getElementById("tile-humidity");
+    var elWind = document.getElementById("tile-wind");
+    var elPressure = document.getElementById("tile-pressure");
+    var elCloud = document.getElementById("tile-cloud");
+    var elPrecipBanner = document.getElementById("precip-banner");
+    var elChart = document.getElementById("chart");
+
+    // ---- State toggling -----------------------------------------------------
+    function showOnly(el) {
+      elLoading.classList.add("hidden");
+      elError.classList.add("hidden");
+      elWeather.classList.add("hidden");
+      el.classList.remove("hidden");
+    }
+
+    function showNotice(message) {
+      elNotice.textContent = message;
+      elNotice.classList.remove("hidden");
+    }
+
+    function clearNotice() {
+      elNotice.textContent = "";
+      elNotice.classList.add("hidden");
+    }
+
+    // ---- Helpers ------------------------------------------------------------
+    function round4(n) {
+      return Math.round(n * 10000) / 10000;
+    }
+
+    // Convert wind-from-direction in degrees to a 16-point compass label.
+    function degreesToCompass(deg) {
+      var points = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+      ];
+      var idx = Math.round(deg / 22.5) % 16;
+      if (idx < 0) { idx += 16; }
+      return points[idx];
+    }
+
+    // Map a MET symbol_code to an emoji. Strips _day/_night/_polartwilight.
+    function symbolToEmoji(code) {
+      if (!code) { return "❓"; }
+      var base = code
+        .replace(/_day$/, "")
+        .replace(/_night$/, "")
+        .replace(/_polartwilight$/, "");
+
+      var map = {
+        clearsky: "☀️",
+        fair: "🌤️",
+        partlycloudy: "⛅",
+        cloudy: "☁️",
+        fog: "🌫️",
+
+        lightrain: "🌦️",
+        rain: "🌧️",
+        heavyrain: "🌧️",
+        lightrainshowers: "🌦️",
+        rainshowers: "🌦️",
+        heavyrainshowers: "🌧️",
+
+        lightsleet: "🌨️",
+        sleet: "🌨️",
+        heavysleet: "🌨️",
+        lightsleetshowers: "🌨️",
+        sleetshowers: "🌨️",
+        heavysleetshowers: "🌨️",
+        lightssleetshowers: "🌨️",
+
+        lightsnow: "🌨️",
+        snow: "❄️",
+        heavysnow: "❄️",
+        lightsnowshowers: "🌨️",
+        snowshowers: "🌨️",
+        heavysnowshowers: "❄️",
+        lightssnowshowers: "🌨️",
+
+        lightrainandthunder: "⛈️",
+        rainandthunder: "⛈️",
+        heavyrainandthunder: "⛈️",
+        lightrainshowersandthunder: "⛈️",
+        rainshowersandthunder: "⛈️",
+        heavyrainshowersandthunder: "⛈️",
+        lightsleetandthunder: "⛈️",
+        sleetandthunder: "⛈️",
+        heavysleetandthunder: "⛈️",
+        lightsleetshowersandthunder: "⛈️",
+        sleetshowersandthunder: "⛈️",
+        heavysleetshowersandthunder: "⛈️",
+        lightssleetshowersandthunder: "⛈️",
+        lightsnowandthunder: "⛈️",
+        snowandthunder: "⛈️",
+        heavysnowandthunder: "⛈️",
+        lightsnowshowersandthunder: "⛈️",
+        snowshowersandthunder: "⛈️",
+        heavysnowshowersandthunder: "⛈️",
+        lightssnowshowersandthunder: "⛈️"
+      };
+
+      // Documented fallback for any unmatched code.
+      return map[base] || "🌡️";
+    }
+
+    // Map a MET base code to readable description text.
+    function describe(code) {
+      if (!code) { return "Current conditions"; }
+      var base = code
+        .replace(/_day$/, "")
+        .replace(/_night$/, "")
+        .replace(/_polartwilight$/, "");
+
+      var labels = {
+        clearsky: "Clear sky",
+        fair: "Fair",
+        partlycloudy: "Partly cloudy",
+        cloudy: "Cloudy",
+        fog: "Fog",
+
+        lightrain: "Light rain",
+        rain: "Rain",
+        heavyrain: "Heavy rain",
+        lightrainshowers: "Light rain showers",
+        rainshowers: "Rain showers",
+        heavyrainshowers: "Heavy rain showers",
+
+        lightsleet: "Light sleet",
+        sleet: "Sleet",
+        heavysleet: "Heavy sleet",
+        lightsleetshowers: "Light sleet showers",
+        sleetshowers: "Sleet showers",
+        heavysleetshowers: "Heavy sleet showers",
+        lightssleetshowers: "Light sleet showers",
+
+        lightsnow: "Light snow",
+        snow: "Snow",
+        heavysnow: "Heavy snow",
+        lightsnowshowers: "Light snow showers",
+        snowshowers: "Snow showers",
+        heavysnowshowers: "Heavy snow showers",
+        lightssnowshowers: "Light snow showers",
+
+        lightrainandthunder: "Light rain and thunder",
+        rainandthunder: "Rain and thunder",
+        heavyrainandthunder: "Heavy rain and thunder",
+        lightrainshowersandthunder: "Light rain showers and thunder",
+        rainshowersandthunder: "Rain showers and thunder",
+        heavyrainshowersandthunder: "Heavy rain showers and thunder",
+        lightsleetandthunder: "Light sleet and thunder",
+        sleetandthunder: "Sleet and thunder",
+        heavysleetandthunder: "Heavy sleet and thunder",
+        lightsleetshowersandthunder: "Light sleet showers and thunder",
+        sleetshowersandthunder: "Sleet showers and thunder",
+        heavysleetshowersandthunder: "Heavy sleet showers and thunder",
+        lightssleetshowersandthunder: "Light sleet showers and thunder",
+        lightsnowandthunder: "Light snow and thunder",
+        snowandthunder: "Snow and thunder",
+        heavysnowandthunder: "Heavy snow and thunder",
+        lightsnowshowersandthunder: "Light snow showers and thunder",
+        snowshowersandthunder: "Snow showers and thunder",
+        heavysnowshowersandthunder: "Heavy snow showers and thunder",
+        lightssnowshowersandthunder: "Light snow showers and thunder"
+      };
+
+      return labels[base] || "Current conditions";
+    }
+
+    // ---- Current conditions render -----------------------------------------
+    function renderCurrent(ts, name) {
+      var details = ts.data.instant.details || {};
+
+      // symbol_code: prefer next_1_hours, fall back to 6h then 12h.
+      var symbol = "";
+      if (ts.data.next_1_hours && ts.data.next_1_hours.summary) {
+        symbol = ts.data.next_1_hours.summary.symbol_code;
+      } else if (ts.data.next_6_hours && ts.data.next_6_hours.summary) {
+        symbol = ts.data.next_6_hours.summary.symbol_code;
+      } else if (ts.data.next_12_hours && ts.data.next_12_hours.summary) {
+        symbol = ts.data.next_12_hours.summary.symbol_code;
+      }
+
+      elBadge.textContent = name;
+      elEmoji.textContent = symbolToEmoji(symbol);
+      elDesc.textContent = describe(symbol);
+
+      var temp = details.air_temperature;
+      elTemp.textContent = (temp === undefined ? "--" : Math.round(temp)) + "°C";
+
+      var humidity = details.relative_humidity;
+      elHumidity.textContent = (humidity === undefined ? "--" : Math.round(humidity)) + "%";
+
+      var windSpeed = details.wind_speed;
+      var windDir = details.wind_from_direction;
+      var windText = (windSpeed === undefined ? "--" : windSpeed.toFixed(1)) + " m/s";
+      if (windDir !== undefined) {
+        windText += " " + degreesToCompass(windDir);
+      }
+      elWind.textContent = windText;
+
+      var pressure = details.air_pressure_at_sea_level;
+      elPressure.textContent = (pressure === undefined ? "--" : Math.round(pressure)) + " hPa";
+
+      var cloud = details.cloud_area_fraction;
+      elCloud.textContent = (cloud === undefined ? "--" : Math.round(cloud)) + "%";
+    }
+
+    // ---- 24-hour precipitation ----------------------------------------------
+    function renderPrecip(timeseries) {
+      // Floor to the start of the current hour so the current-hour entry
+      // (timeseries[0], whose time is the top of this hour) is included.
+      var now = new Date();
+      now.setMinutes(0, 0, 0);
+      now = now.getTime();
+      var horizon = now + 24 * 60 * 60 * 1000;
+
+      var hours = [];
+      var total = 0;
+
+      for (var i = 0; i < timeseries.length; i++) {
+        var entry = timeseries[i];
+        var t = new Date(entry.time).getTime();
+        if (t < now || t > horizon) { continue; }
+
+        // Entries near the boundary may lack next_1_hours -> treat as 0.
+        var amount = 0;
+        if (
+          entry.data &&
+          entry.data.next_1_hours &&
+          entry.data.next_1_hours.details &&
+          typeof entry.data.next_1_hours.details.precipitation_amount === "number"
+        ) {
+          amount = entry.data.next_1_hours.details.precipitation_amount;
+        }
+
+        total += amount;
+        hours.push({ time: t, amount: amount });
+      }
+
+      // Banner.
+      elPrecipBanner.classList.remove("rain", "dry");
+      var totalText = total.toFixed(1) + " mm";
+      if (total >= PRECIP_THRESHOLD_MM) {
+        elPrecipBanner.classList.add("rain");
+        elPrecipBanner.textContent = "☔ Rain expected — " + totalText + " over the next 24h. Take an umbrella!";
+      } else {
+        elPrecipBanner.classList.add("dry");
+        elPrecipBanner.textContent = "🌤️ No significant rain — " + totalText + " expected over the next 24h.";
+      }
+
+      // Bar chart, DOM methods only.
+      while (elChart.firstChild) {
+        elChart.removeChild(elChart.firstChild);
+      }
+
+      var maxAmount = 0;
+      for (var j = 0; j < hours.length; j++) {
+        if (hours[j].amount > maxAmount) { maxAmount = hours[j].amount; }
+      }
+
+      for (var k = 0; k < hours.length; k++) {
+        var hour = hours[k];
+
+        var col = document.createElement("div");
+        col.className = "bar-col";
+
+        var amountLabel = document.createElement("div");
+        amountLabel.className = "bar-amount";
+        amountLabel.textContent = hour.amount > 0 ? hour.amount.toFixed(1) : "";
+        col.appendChild(amountLabel);
+
+        var bar = document.createElement("div");
+        bar.className = "bar";
+        var heightPct = maxAmount > 0 ? (hour.amount / maxAmount) * 100 : 0;
+        bar.style.height = heightPct + "%";
+        col.appendChild(bar);
+
+        var hourLabel = document.createElement("div");
+        hourLabel.className = "bar-hour";
+        var d = new Date(hour.time);
+        var hh = d.getHours();
+        hourLabel.textContent = (hh < 10 ? "0" + hh : hh) + ":00";
+        col.appendChild(hourLabel);
+
+        elChart.appendChild(col);
+      }
+    }
+
+    // ---- Core load path -----------------------------------------------------
+    function loadWeather(lat, lon, name) {
+      lat = round4(lat);
+      lon = round4(lon);
+
+      showOnly(elLoading);
+
+      var params = new URLSearchParams({ lat: lat, lon: lon });
+      var url = "https://api.met.no/weatherapi/locationforecast/2.0/compact?" + params.toString();
+
+      fetch(url)
+        .then(function (res) {
+          if (!res.ok) {
+            throw new Error("Weather service returned HTTP " + res.status);
+          }
+          return res.json();
+        })
+        .then(function (data) {
+          var timeseries = data &&
+            data.properties &&
+            data.properties.timeseries;
+
+          if (!timeseries || !timeseries.length) {
+            throw new Error("No forecast data available for this location.");
+          }
+
+          renderCurrent(timeseries[0], name);
+          renderPrecip(timeseries);
+          showOnly(elWeather);
+        })
+        .catch(function (err) {
+          elError.textContent = "Could not load weather: " + err.message;
+          showOnly(elError);
+        });
+    }
+
+    // ---- Location inputs ----------------------------------------------------
+    // Tabs.
+    var tabButtons = document.querySelectorAll(".tab-btn");
+    var panels = {
+      gps: document.getElementById("panel-gps"),
+      city: document.getElementById("panel-city"),
+      manual: document.getElementById("panel-manual")
+    };
+
+    Array.prototype.forEach.call(tabButtons, function (btn) {
+      btn.addEventListener("click", function () {
+        var tab = btn.getAttribute("data-tab");
+        Array.prototype.forEach.call(tabButtons, function (b) {
+          b.classList.remove("active");
+        });
+        btn.classList.add("active");
+        Object.keys(panels).forEach(function (key) {
+          if (key === tab) {
+            panels[key].classList.remove("hidden");
+          } else {
+            panels[key].classList.add("hidden");
+          }
+        });
+      });
+    });
+
+    // GPS.
+    document.getElementById("gps-btn").addEventListener("click", function () {
+      clearNotice();
+      if (!navigator.geolocation) {
+        showNotice("Geolocation unavailable — showing Belgrade instead.");
+        loadWeather(BELGRADE.lat, BELGRADE.lon, BELGRADE.name);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          var gLat = round4(pos.coords.latitude);
+          var gLon = round4(pos.coords.longitude);
+          loadWeather(gLat, gLon, "My location (" + gLat + ", " + gLon + ")");
+        },
+        function () {
+          showNotice("Location access denied or unavailable — showing Belgrade instead.");
+          loadWeather(BELGRADE.lat, BELGRADE.lon, BELGRADE.name);
+        },
+        { timeout: 8000 }
+      );
+    });
+
+    // City dropdown.
+    var citySelect = document.getElementById("city-select");
+    CITIES.forEach(function (city, index) {
+      var opt = document.createElement("option");
+      opt.value = String(index);
+      opt.textContent = city.name;
+      citySelect.appendChild(opt);
+    });
+    citySelect.addEventListener("change", function () {
+      clearNotice();
+      var city = CITIES[parseInt(citySelect.value, 10)];
+      if (city) {
+        loadWeather(city.lat, city.lon, city.name);
+      }
+    });
+
+    // Manual entry.
+    var latInput = document.getElementById("lat-input");
+    var lonInput = document.getElementById("lon-input");
+    var manualError = document.getElementById("manual-error");
+
+    document.getElementById("manual-btn").addEventListener("click", function () {
+      manualError.textContent = "";
+      var lat = parseFloat(latInput.value);
+      var lon = parseFloat(lonInput.value);
+
+      if (isNaN(lat) || isNaN(lon)) {
+        manualError.textContent = "Please enter valid numeric latitude and longitude.";
+        return;
+      }
+      if (lat < -90 || lat > 90) {
+        manualError.textContent = "Latitude must be between -90 and 90.";
+        return;
+      }
+      if (lon < -180 || lon > 180) {
+        manualError.textContent = "Longitude must be between -180 and 180.";
+        return;
+      }
+
+      clearNotice();
+      var rLat = round4(lat);
+      var rLon = round4(lon);
+      loadWeather(rLat, rLon, rLat + ", " + rLon);
+    });
+
+    // ---- Default load -------------------------------------------------------
+    document.addEventListener("DOMContentLoaded", function () {
+      loadWeather(BELGRADE.lat, BELGRADE.lon, BELGRADE.name);
+    });
+  </script>
+</body>
+</html>

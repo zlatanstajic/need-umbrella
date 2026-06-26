@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Need Umbrella? — Serbia Weather</title>
+  <title>Need Umbrella? — Weather</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Need Umbrella?">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#0f172a">
   <style>
     :root {
       --bg: #0f172a;
@@ -32,6 +37,118 @@
     }
 
     .hidden { display: none !important; }
+
+    .gear-btn {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 20;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid transparent;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 1.3rem;
+      line-height: 1;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .gear-btn:hover {
+      background: #2f3f57;
+      border-color: var(--accent);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.55);
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 360px;
+      background: var(--panel);
+      border: 1px solid #2f3f57;
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      background: var(--panel-2);
+      color: var(--text);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .modal-close:hover { background: #2f3f57; }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .setting-label { font-weight: 600; }
+
+    .modal-actions {
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
+
+    .lang-bar {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .lang-btn {
+      min-height: 36px;
+      min-width: 56px;
+      padding: 0.4rem 0.9rem;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .lang-btn:hover { background: #2f3f57; }
+
+    .lang-btn.active {
+      border-color: var(--accent);
+      background: #2f3f57;
+      color: var(--accent);
+    }
 
     header {
       text-align: center;
@@ -101,6 +218,62 @@
       gap: 0.6rem;
     }
 
+    #selector-body {
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .toggle input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-track {
+      width: 44px;
+      height: 24px;
+      background: #334155;
+      border-radius: 12px;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    .toggle-track::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: var(--text);
+      border-radius: 50%;
+      transition: transform 0.15s;
+    }
+
+    .toggle input[type="checkbox"]:checked + .toggle-track {
+      background: var(--accent-2);
+    }
+
+    .toggle input[type="checkbox"]:checked + .toggle-track::after {
+      transform: translateX(20px);
+    }
+
+    .toggle input[type="checkbox"]:focus-visible + .toggle-track {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .setting-row + .setting-row {
+      margin-top: 0.75rem;
+    }
+
     .row {
       display: flex;
       gap: 0.5rem;
@@ -118,7 +291,7 @@
       font-family: inherit;
     }
 
-    select, input[type="number"] {
+    select, input[type="number"], input[type="text"] {
       padding: 0.55rem 0.6rem;
       border-radius: 10px;
       border: 1px solid #334155;
@@ -140,6 +313,68 @@
     }
 
     .btn:hover { background: var(--accent); }
+
+    .btn-ghost {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid #334155;
+    }
+
+    .btn-ghost:hover { background: #2f3f57; }
+
+    .btn-ghost:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost:disabled:hover { background: var(--panel-2); }
+
+    .saved-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .saved-list:empty { display: none; }
+
+    .saved-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: var(--panel-2);
+      border: 1px solid #334155;
+      border-radius: 999px;
+      padding-left: 0.75rem;
+    }
+
+    .saved-chip-load {
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.4rem 0;
+    }
+
+    /* No edit/remove controls (e.g. the GPS chip): pad the right edge too. */
+    .saved-chip-load:only-child { padding-right: 0.75rem; }
+
+    .saved-chip-edit,
+    .saved-chip-remove {
+      min-height: 28px;
+      min-width: 28px;
+      border: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      line-height: 1;
+      font-size: 0.9rem;
+    }
+
+    .saved-chip-edit:hover { color: var(--accent); }
+
+    .saved-chip-remove:hover { color: var(--error); }
 
     .inline-error {
       color: var(--error);
@@ -324,32 +559,107 @@
     }
 
     footer a { color: var(--accent); }
+
+    .search-results {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-top: 0.25rem;
+    }
+
+    .search-results:empty { display: none; }
+
+    .search-result-btn {
+      text-align: left;
+      background: var(--panel-2);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.85rem;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .search-result-btn:hover {
+      border-color: var(--accent);
+      background: #2f3f57;
+    }
   </style>
 </head>
 <body>
+  <button type="button" class="gear-btn" id="settings-open"
+          aria-haspopup="dialog" aria-label="Settings" data-i18n-aria="settingsOpen">⚙️</button>
+
+  <div class="modal-overlay hidden" id="settings-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal-head">
+        <h2 class="modal-title" id="settings-title" data-i18n="settingsTitle">Settings</h2>
+        <button type="button" class="modal-close" id="settings-close"
+                aria-label="Close" data-i18n-aria="settingsClose">✕</button>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label" id="language-label" data-i18n="languageLabel">Language</span>
+        <div class="lang-bar">
+          <button type="button" class="lang-btn" id="lang-sr" data-lang="sr">SR</button>
+          <button type="button" class="lang-btn" id="lang-en" data-lang="en">EN</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="selectorVisLabel">Show location selector</span>
+        <label class="toggle">
+          <input type="checkbox" id="selector-vis-toggle">
+          <span class="toggle-track" aria-hidden="true"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="rename-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rename-title">
+      <div class="modal-head">
+        <h2 class="modal-title" id="rename-title" data-i18n="editTitle">Location name:</h2>
+        <button type="button" class="modal-close" id="rename-close"
+                aria-label="Close" data-i18n-aria="settingsClose">✕</button>
+      </div>
+      <form id="rename-form">
+        <div class="row">
+          <input type="text" id="rename-input" data-i18n-placeholder="editPlaceholder">
+        </div>
+        <div class="row modal-actions">
+          <button type="button" class="btn btn-ghost" id="rename-cancel" data-i18n="renameCancel">Cancel</button>
+          <button type="submit" class="btn" data-i18n="renameSave">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <header>
-    <h1>Need Umbrella? ☔</h1>
-    <p>Live weather and 24-hour rain outlook for Serbia</p>
+    <h1 id="header-title" data-i18n="headerTitle">Need Umbrella? ☔</h1>
   </header>
 
   <main>
-    <section class="selector">
+    <section class="selector" id="selector-section">
+      <div id="selector-body">
       <div class="tabs">
-        <button type="button" class="tab-btn active" data-tab="gps">📍 GPS</button>
-        <button type="button" class="tab-btn" data-tab="city">🏙️ City</button>
-        <button type="button" class="tab-btn" data-tab="manual">🧭 Manual</button>
+        <button type="button" class="tab-btn active" data-tab="gps" data-i18n="tabGps">📍 GPS</button>
+        <button type="button" class="tab-btn" data-tab="city" data-i18n="tabCity">🏙️ City</button>
+        <button type="button" class="tab-btn" data-tab="manual" data-i18n="tabManual">🧭 Manual</button>
+        <button type="button" class="tab-btn" data-tab="search" data-i18n="tabSearch">🔍 Search</button>
       </div>
 
       <div class="panel" id="panel-gps">
-        <p style="margin:0;color:var(--muted);font-size:0.85rem;">Use your device location to get local weather.</p>
         <div class="row">
-          <button type="button" class="btn" id="gps-btn">Use my location</button>
+          <div class="saved-chip">
+            <button type="button" class="saved-chip-load" id="gps-btn" data-i18n="gpsBtn">📍 Use my location</button>
+          </div>
         </div>
+        <div class="saved-list" id="saved-list"></div>
       </div>
 
       <div class="panel hidden" id="panel-city">
         <div class="row">
-          <label for="city-select">Choose a Serbian city:</label>
         </div>
         <div class="row">
           <select id="city-select"></select>
@@ -358,17 +668,31 @@
 
       <div class="panel hidden" id="panel-manual">
         <div class="row">
-          <label for="lat-input">Latitude</label>
-          <input type="number" id="lat-input" step="any" placeholder="-90 to 90">
+          <label for="lat-input" data-i18n="latLabel">Latitude</label>
+          <input type="number" id="lat-input" step="any" placeholder="-90 to 90" data-i18n-placeholder="latPlaceholder">
         </div>
         <div class="row">
-          <label for="lon-input">Longitude</label>
-          <input type="number" id="lon-input" step="any" placeholder="-180 to 180">
+          <label for="lon-input" data-i18n="lonLabel">Longitude</label>
+          <input type="number" id="lon-input" step="any" placeholder="-180 to 180" data-i18n-placeholder="lonPlaceholder">
         </div>
         <div class="row">
-          <button type="button" class="btn" id="manual-btn">Get weather</button>
+          <button type="button" class="btn" id="manual-btn" data-i18n="manualBtn">Get weather</button>
+          <button type="button" class="btn btn-ghost" id="save-btn" data-i18n="saveLocation">Save location</button>
         </div>
         <div class="inline-error" id="manual-error"></div>
+      </div>
+
+      <div class="panel hidden" id="panel-search">
+        <div class="row">
+          <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder">
+        </div>
+        <div class="inline-error hidden" id="search-error"></div>
+        <div class="search-results" id="search-results"></div>
+        <div class="row">
+          <button type="button" class="btn" id="search-btn" data-i18n="searchBtn">Search</button>
+          <button type="button" class="btn btn-ghost" id="save-search-btn" data-i18n="saveLocation">Save location</button>
+        </div>
+      </div>
       </div>
     </section>
 
@@ -376,7 +700,7 @@
 
     <div class="state" id="loading">
       <div class="spinner"></div>
-      <div>Loading weather…</div>
+      <div id="loading-text">Loading weather…</div>
     </div>
 
     <div class="state error-state hidden" id="error"></div>
@@ -392,25 +716,25 @@
 
       <div class="tiles">
         <div class="tile">
-          <div class="tile-label">Humidity</div>
+          <div class="tile-label" data-i18n="tileHumidity">Humidity</div>
           <div class="tile-value" id="tile-humidity"></div>
         </div>
         <div class="tile">
-          <div class="tile-label">Wind</div>
+          <div class="tile-label" data-i18n="tileWind">Wind</div>
           <div class="tile-value" id="tile-wind"></div>
         </div>
         <div class="tile">
-          <div class="tile-label">Pressure</div>
+          <div class="tile-label" data-i18n="tilePressure">Pressure</div>
           <div class="tile-value" id="tile-pressure"></div>
         </div>
         <div class="tile">
-          <div class="tile-label">Cloud cover</div>
+          <div class="tile-label" data-i18n="tileCloud">Cloud cover</div>
           <div class="tile-value" id="tile-cloud"></div>
         </div>
       </div>
 
       <section class="precip">
-        <h2>Next 24 hours</h2>
+        <h2 data-i18n="next24">Next 24 hours</h2>
         <div class="precip-banner" id="precip-banner"></div>
         <div class="chart" id="chart"></div>
       </section>
@@ -419,30 +743,294 @@
 
   <footer>
     <p>
-      Weather data from
-      <a href="https://www.met.no/" target="_blank" rel="noopener">MET Norway</a>,
-      licensed under
+      <span data-i18n="footerData">Weather data from</span>
+      <a href="https://www.met.no/" target="_blank" rel="noopener">MET Norway</a><span data-i18n="footerLicensed">, licensed under</span>
       <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
     </p>
     <p>
-      <a href="https://github.com/zlatanstajic/need-umbrella" target="_blank" rel="noopener">Source on GitHub</a>
+      <a href="https://github.com/zlatanstajic/need-umbrella" target="_blank" rel="noopener" data-i18n="footerSource">Source on GitHub</a>
     </p>
   </footer>
 
   <script>
     "use strict";
 
-    // ---- Constants ----------------------------------------------------------
-    var BELGRADE = { lat: 44.8176, lon: 20.4633, name: "Belgrade" };
+    // ---- i18n: dictionary and language state --------------------------------
+    // All user-facing strings live here, keyed by language code ("sr" = Serbian
+    // in Latin script, "en" = English). Entries that need runtime values are
+    // function-valued (string concatenation only, no template literals) to keep
+    // the pre-ES6 style. describe() condition labels live under STRINGS[lang].cond.
+    var STRINGS = {
+      sr: {
+        title: "Treba li kišobran? — Vremenska prognoza",
+        headerTitle: "Treba li kišobran? ☔",
+        headerRain: "Treba vam kišobran ☔",
+        headerDry: "Ostavite kišobran kod kuće 🌤️",
+        headerSubtitle: "Trenutno vreme i prognoza kiše za narednih 24h",
+        settingsTitle: "Podešavanja",
+        settingsOpen: "Podešavanja",
+        settingsClose: "Zatvori",
+        languageLabel: "Jezik",
+        tabGps: "📍 GPS",
+        tabCity: "🏙️ Grad",
+        tabManual: "🧭 Ručno",
+        selectorSection: "Izbor lokacije",
+        selectorVisLabel: "Prikaži izbor lokacije",
+        gpsBtn: "📍 Koristi moju lokaciju",
+        saveLocation: "Sačuvaj lokaciju",
+        removeLocation: "Ukloni lokaciju",
+        editLocation: "Izmeni naziv",
+        editTitle: "Naziv lokacije",
+        editPlaceholder: "Unesite naziv",
+        renameSave: "Sačuvaj",
+        renameCancel: "Otkaži",
+        locationSaved: "Lokacija sačuvana.",
+        latLabel: "Geografska širina",
+        lonLabel: "Geografska dužina",
+        latPlaceholder: "-90 do 90",
+        lonPlaceholder: "-180 do 180",
+        manualBtn: "Prikaži vreme",
+        tabSearch: "🔍 Pretraga",
+        searchPlaceholder: "Unesite naziv mesta",
+        searchBtn: "Traži",
+        searchNoResults: "Nema rezultata.",
+        searchError: "Pretraga nije uspela.",
+        cityCustom: "📍 Prilagođena lokacija",
+        next24: "Narednih 24 sata",
+        tileHumidity: "Vlažnost",
+        tileWind: "Vetar",
+        tilePressure: "Pritisak",
+        tileCloud: "Oblačnost",
+        footerData: "Podaci o vremenu sa",
+        footerLicensed: ", licencirani pod",
+        footerSource: "Izvor na GitHub-u",
+        loading: "Učitavanje prognoze…",
+        errorPrefix: "Učitavanje prognoze nije uspelo: ",
+        httpError: function (status) { return "Vremenski servis je vratio HTTP " + status; },
+        noData: "Nema dostupne prognoze za ovu lokaciju.",
+        invalidNumeric: "Unesite ispravnu numeričku širinu i dužinu.",
+        latRange: "Geografska širina mora biti između -90 i 90.",
+        lonRange: "Geografska dužina mora biti između -180 i 180.",
+        geoUnavailable: "Geolokacija nije dostupna — prikazujem Beograd.",
+        geoDenied: "Pristup lokaciji odbijen ili nedostupan — prikazujem Beograd.",
+        rainBanner: function (totalText) { return "☔ Očekuje se kiša — " + totalText + " u narednih 24h. Ponesite kišobran!"; },
+        dryBanner: function (totalText) { return "🌤️ Nema značajne kiše — očekuje se " + totalText + " u narednih 24h."; },
+        myLocation: function (lat, lon) { return "Moja lokacija (" + lat + ", " + lon + ")"; },
+        condFallback: "Trenutni uslovi",
+        cond: {
+          clearsky: "Vedro",
+          fair: "Pretežno vedro",
+          partlycloudy: "Delimično oblačno",
+          cloudy: "Oblačno",
+          fog: "Magla",
 
+          lightrain: "Slaba kiša",
+          rain: "Kiša",
+          heavyrain: "Jaka kiša",
+          lightrainshowers: "Slabi pljuskovi",
+          rainshowers: "Pljuskovi",
+          heavyrainshowers: "Jaki pljuskovi",
+
+          lightsleet: "Slaba susnežica",
+          sleet: "Susnežica",
+          heavysleet: "Jaka susnežica",
+          lightsleetshowers: "Slabi pljuskovi susnežice",
+          sleetshowers: "Pljuskovi susnežice",
+          heavysleetshowers: "Jaki pljuskovi susnežice",
+          lightssleetshowers: "Slabi pljuskovi susnežice",
+
+          lightsnow: "Slab sneg",
+          snow: "Sneg",
+          heavysnow: "Jak sneg",
+          lightsnowshowers: "Slabi snežni pljuskovi",
+          snowshowers: "Snežni pljuskovi",
+          heavysnowshowers: "Jaki snežni pljuskovi",
+          lightssnowshowers: "Slabi snežni pljuskovi",
+
+          lightrainandthunder: "Slaba kiša i grmljavina",
+          rainandthunder: "Kiša i grmljavina",
+          heavyrainandthunder: "Jaka kiša i grmljavina",
+          lightrainshowersandthunder: "Slabi pljuskovi i grmljavina",
+          rainshowersandthunder: "Pljuskovi i grmljavina",
+          heavyrainshowersandthunder: "Jaki pljuskovi i grmljavina",
+          lightsleetandthunder: "Slaba susnežica i grmljavina",
+          sleetandthunder: "Susnežica i grmljavina",
+          heavysleetandthunder: "Jaka susnežica i grmljavina",
+          lightsleetshowersandthunder: "Slabi pljuskovi susnežice i grmljavina",
+          sleetshowersandthunder: "Pljuskovi susnežice i grmljavina",
+          heavysleetshowersandthunder: "Jaki pljuskovi susnežice i grmljavina",
+          lightssleetshowersandthunder: "Slabi pljuskovi susnežice i grmljavina",
+          lightsnowandthunder: "Slab sneg i grmljavina",
+          snowandthunder: "Sneg i grmljavina",
+          heavysnowandthunder: "Jak sneg i grmljavina",
+          lightsnowshowersandthunder: "Slabi snežni pljuskovi i grmljavina",
+          snowshowersandthunder: "Snežni pljuskovi i grmljavina",
+          heavysnowshowersandthunder: "Jaki snežni pljuskovi i grmljavina",
+          lightssnowshowersandthunder: "Slabi snežni pljuskovi i grmljavina"
+        }
+      },
+      en: {
+        title: "Need Umbrella? — Weather",
+        headerTitle: "Need Umbrella? ☔",
+        headerRain: "You need an umbrella ☔",
+        headerDry: "Leave umbrella at home 🌤️",
+        headerSubtitle: "Live weather and 24-hour rain outlook",
+        settingsTitle: "Settings",
+        settingsOpen: "Settings",
+        settingsClose: "Close",
+        languageLabel: "Language",
+        tabGps: "📍 GPS",
+        tabCity: "🏙️ City",
+        tabManual: "🧭 Manual",
+        selectorSection: "Choose location",
+        selectorVisLabel: "Show location selector",
+        gpsBtn: "📍 Use my location",
+        saveLocation: "Save location",
+        removeLocation: "Remove location",
+        editLocation: "Edit name",
+        editTitle: "Location name",
+        editPlaceholder: "Enter a name",
+        renameSave: "Save",
+        renameCancel: "Cancel",
+        locationSaved: "Location saved.",
+        latLabel: "Latitude",
+        lonLabel: "Longitude",
+        latPlaceholder: "-90 to 90",
+        lonPlaceholder: "-180 to 180",
+        manualBtn: "Get weather",
+        tabSearch: "🔍 Search",
+        searchPlaceholder: "Enter a place name",
+        searchBtn: "Search",
+        searchNoResults: "No results found.",
+        searchError: "Search failed.",
+        cityCustom: "📍 Custom location",
+        next24: "Next 24 hours",
+        tileHumidity: "Humidity",
+        tileWind: "Wind",
+        tilePressure: "Pressure",
+        tileCloud: "Cloud cover",
+        footerData: "Weather data from",
+        footerLicensed: ", licensed under",
+        footerSource: "Source on GitHub",
+        loading: "Loading weather…",
+        errorPrefix: "Could not load weather: ",
+        httpError: function (status) { return "Weather service returned HTTP " + status; },
+        noData: "No forecast data available for this location.",
+        invalidNumeric: "Please enter valid numeric latitude and longitude.",
+        latRange: "Latitude must be between -90 and 90.",
+        lonRange: "Longitude must be between -180 and 180.",
+        geoUnavailable: "Geolocation unavailable — showing Belgrade instead.",
+        geoDenied: "Location access denied or unavailable — showing Belgrade instead.",
+        rainBanner: function (totalText) { return "☔ Rain expected — " + totalText + " over the next 24h. Take an umbrella!"; },
+        dryBanner: function (totalText) { return "🌤️ No significant rain — " + totalText + " expected over the next 24h."; },
+        myLocation: function (lat, lon) { return "My location (" + lat + ", " + lon + ")"; },
+        condFallback: "Current conditions",
+        cond: {
+          clearsky: "Clear sky",
+          fair: "Fair",
+          partlycloudy: "Partly cloudy",
+          cloudy: "Cloudy",
+          fog: "Fog",
+
+          lightrain: "Light rain",
+          rain: "Rain",
+          heavyrain: "Heavy rain",
+          lightrainshowers: "Light rain showers",
+          rainshowers: "Rain showers",
+          heavyrainshowers: "Heavy rain showers",
+
+          lightsleet: "Light sleet",
+          sleet: "Sleet",
+          heavysleet: "Heavy sleet",
+          lightsleetshowers: "Light sleet showers",
+          sleetshowers: "Sleet showers",
+          heavysleetshowers: "Heavy sleet showers",
+          lightssleetshowers: "Light sleet showers",
+
+          lightsnow: "Light snow",
+          snow: "Snow",
+          heavysnow: "Heavy snow",
+          lightsnowshowers: "Light snow showers",
+          snowshowers: "Snow showers",
+          heavysnowshowers: "Heavy snow showers",
+          lightssnowshowers: "Light snow showers",
+
+          lightrainandthunder: "Light rain and thunder",
+          rainandthunder: "Rain and thunder",
+          heavyrainandthunder: "Heavy rain and thunder",
+          lightrainshowersandthunder: "Light rain showers and thunder",
+          rainshowersandthunder: "Rain showers and thunder",
+          heavyrainshowersandthunder: "Heavy rain showers and thunder",
+          lightsleetandthunder: "Light sleet and thunder",
+          sleetandthunder: "Sleet and thunder",
+          heavysleetandthunder: "Heavy sleet and thunder",
+          lightsleetshowersandthunder: "Light sleet showers and thunder",
+          sleetshowersandthunder: "Sleet showers and thunder",
+          heavysleetshowersandthunder: "Heavy sleet showers and thunder",
+          lightssleetshowersandthunder: "Light sleet showers and thunder",
+          lightsnowandthunder: "Light snow and thunder",
+          snowandthunder: "Snow and thunder",
+          heavysnowandthunder: "Heavy snow and thunder",
+          lightsnowshowersandthunder: "Light snow showers and thunder",
+          snowshowersandthunder: "Snow showers and thunder",
+          heavysnowshowersandthunder: "Heavy snow showers and thunder",
+          lightssnowshowersandthunder: "Light snow showers and thunder"
+        }
+      }
+    };
+
+    var LANG_KEY = "needUmbrellaLang";
+    var LOC_KEY = "needUmbrellaLoc";
+    var GEO_KEY = "needUmbrellaGeo";
+    var SAVED_KEY = "needUmbrellaSaved";
+    var SELECTOR_COLLAPSE_KEY = "needUmbrellaSelectorCollapsed";
+
+    var currentLang = (function () {
+      var saved = null;
+      try { saved = localStorage.getItem(LANG_KEY); } catch (e) { saved = null; }
+      return (saved === "sr" || saved === "en") ? saved : "sr";
+    })();
+
+    // Look up a plain string for the active language; fall back to the key.
+    function t(key) {
+      var bundle = STRINGS[currentLang] || {};
+      if (Object.prototype.hasOwnProperty.call(bundle, key)) {
+        return bundle[key];
+      }
+      return key;
+    }
+
+    // Look up a function-valued string and call it with the given args; fall
+    // back to the key if missing or not callable.
+    function tf(key) {
+      var bundle = STRINGS[currentLang] || {};
+      var entry = bundle[key];
+      if (typeof entry === "function") {
+        var args = Array.prototype.slice.call(arguments, 1);
+        return entry.apply(null, args);
+      }
+      return key;
+    }
+
+    // ---- Constants ----------------------------------------------------------
+    // City display names carry localized variants ({ sr, en }); only lat/lon
+    // are sent to MET. The badge and dropdown labels follow the active language.
     var CITIES = [
-      { name: "Belgrade", lat: 44.8176, lon: 20.4633 },
-      { name: "Novi Sad", lat: 45.2671, lon: 19.8335 },
-      { name: "Kragujevac", lat: 44.0128, lon: 20.9114 },
-      { name: "Nis", lat: 43.3209, lon: 21.8954 },
-      { name: "Pozarevac", lat: 44.6212, lon: 21.1867 },
-      { name: "Jagodina", lat: 43.9772, lon: 21.2611 }
+      { key: "belgrade", names: { sr: "Beograd", en: "Belgrade" }, lat: 44.8176, lon: 20.4633 },
+      { key: "novisad", names: { sr: "Novi Sad", en: "Novi Sad" }, lat: 45.2671, lon: 19.8335 },
+      { key: "kragujevac", names: { sr: "Kragujevac", en: "Kragujevac" }, lat: 44.0128, lon: 20.9114 },
+      { key: "nis", names: { sr: "Niš", en: "Nis" }, lat: 43.3209, lon: 21.8954 },
+      { key: "pozarevac", names: { sr: "Požarevac", en: "Pozarevac" }, lat: 44.6212, lon: 21.1867 },
+      { key: "jagodina", names: { sr: "Jagodina", en: "Jagodina" }, lat: 43.9772, lon: 21.2611 }
     ];
+
+    // Default-load / GPS-fallback location descriptor (Belgrade is CITIES[0]).
+    var BELGRADE = { type: "city", cityIndex: 0 };
+
+    // Resolve a city's display name in the active language.
+    function cityName(city) {
+      return (city.names && city.names[currentLang]) || (city.names && city.names.en) || "";
+    }
 
     var PRECIP_THRESHOLD_MM = 0.1;
 
@@ -497,6 +1085,8 @@
     }
 
     // Map a MET symbol_code to an emoji. Strips _day/_night/_polartwilight.
+    // Emoji are language-independent. The base-code set below MUST stay in sync
+    // with the cond label set in STRINGS[lang].cond (see describe()).
     function symbolToEmoji(code) {
       if (!code) { return "❓"; }
       var base = code
@@ -560,67 +1150,19 @@
       return map[base] || "🌡️";
     }
 
-    // Map a MET base code to readable description text.
+    // Map a MET base code to a readable description in the active language.
+    // Labels come from STRINGS[currentLang].cond; the base-code set there MUST
+    // stay in sync with symbolToEmoji. Unmatched codes fall back to the
+    // localized "Current conditions" string.
     function describe(code) {
-      if (!code) { return "Current conditions"; }
+      var labels = (STRINGS[currentLang] && STRINGS[currentLang].cond) || {};
+      if (!code) { return t("condFallback"); }
       var base = code
         .replace(/_day$/, "")
         .replace(/_night$/, "")
         .replace(/_polartwilight$/, "");
 
-      var labels = {
-        clearsky: "Clear sky",
-        fair: "Fair",
-        partlycloudy: "Partly cloudy",
-        cloudy: "Cloudy",
-        fog: "Fog",
-
-        lightrain: "Light rain",
-        rain: "Rain",
-        heavyrain: "Heavy rain",
-        lightrainshowers: "Light rain showers",
-        rainshowers: "Rain showers",
-        heavyrainshowers: "Heavy rain showers",
-
-        lightsleet: "Light sleet",
-        sleet: "Sleet",
-        heavysleet: "Heavy sleet",
-        lightsleetshowers: "Light sleet showers",
-        sleetshowers: "Sleet showers",
-        heavysleetshowers: "Heavy sleet showers",
-        lightssleetshowers: "Light sleet showers",
-
-        lightsnow: "Light snow",
-        snow: "Snow",
-        heavysnow: "Heavy snow",
-        lightsnowshowers: "Light snow showers",
-        snowshowers: "Snow showers",
-        heavysnowshowers: "Heavy snow showers",
-        lightssnowshowers: "Light snow showers",
-
-        lightrainandthunder: "Light rain and thunder",
-        rainandthunder: "Rain and thunder",
-        heavyrainandthunder: "Heavy rain and thunder",
-        lightrainshowersandthunder: "Light rain showers and thunder",
-        rainshowersandthunder: "Rain showers and thunder",
-        heavyrainshowersandthunder: "Heavy rain showers and thunder",
-        lightsleetandthunder: "Light sleet and thunder",
-        sleetandthunder: "Sleet and thunder",
-        heavysleetandthunder: "Heavy sleet and thunder",
-        lightsleetshowersandthunder: "Light sleet showers and thunder",
-        sleetshowersandthunder: "Sleet showers and thunder",
-        heavysleetshowersandthunder: "Heavy sleet showers and thunder",
-        lightssleetshowersandthunder: "Light sleet showers and thunder",
-        lightsnowandthunder: "Light snow and thunder",
-        snowandthunder: "Snow and thunder",
-        heavysnowandthunder: "Heavy snow and thunder",
-        lightsnowshowersandthunder: "Light snow showers and thunder",
-        snowshowersandthunder: "Snow showers and thunder",
-        heavysnowshowersandthunder: "Heavy snow showers and thunder",
-        lightssnowshowersandthunder: "Light snow showers and thunder"
-      };
-
-      return labels[base] || "Current conditions";
+      return labels[base] || t("condFallback");
     }
 
     // ---- Current conditions render -----------------------------------------
@@ -676,8 +1218,8 @@
 
       for (var i = 0; i < timeseries.length; i++) {
         var entry = timeseries[i];
-        var t = new Date(entry.time).getTime();
-        if (t < now || t > horizon) { continue; }
+        var entryTime = new Date(entry.time).getTime();
+        if (entryTime < now || entryTime > horizon) { continue; }
 
         // Entries near the boundary may lack next_1_hours -> treat as 0.
         var amount = 0;
@@ -691,19 +1233,25 @@
         }
 
         total += amount;
-        hours.push({ time: t, amount: amount });
+        hours.push({ time: entryTime, amount: amount });
       }
 
       // Banner.
       elPrecipBanner.classList.remove("rain", "dry");
       var totalText = total.toFixed(1) + " mm";
-      if (total >= PRECIP_THRESHOLD_MM) {
+      var isRain = total >= PRECIP_THRESHOLD_MM;
+      if (isRain) {
         elPrecipBanner.classList.add("rain");
-        elPrecipBanner.textContent = "☔ Rain expected — " + totalText + " over the next 24h. Take an umbrella!";
+        elPrecipBanner.textContent = tf("rainBanner", totalText);
       } else {
         elPrecipBanner.classList.add("dry");
-        elPrecipBanner.textContent = "🌤️ No significant rain — " + totalText + " expected over the next 24h.";
+        elPrecipBanner.textContent = tf("dryBanner", totalText);
       }
+
+      var headerTitle = document.getElementById("header-title");
+      var dynamicTitle = t(isRain ? "headerRain" : "headerDry");
+      if (headerTitle) { headerTitle.textContent = dynamicTitle; }
+      document.title = dynamicTitle;
 
       // Bar chart, DOM methods only.
       while (elChart.firstChild) {
@@ -743,10 +1291,155 @@
       }
     }
 
+    // ---- Location tracking --------------------------------------------------
+    // The currently displayed location, kept so setLanguage() can re-fetch the
+    // same place and so the badge can be recomposed in the active language.
+    // Shape: { type: "city", cityIndex } | { type: "gps", lat, lon }
+    //      | { type: "manual", lat, lon }
+    var currentLocation = null;
+
+    // Compose the location badge text for a descriptor in the active language.
+    function badgeFor(loc) {
+      if (!loc) { return ""; }
+      if (loc.type === "city") {
+        var city = CITIES[loc.cityIndex];
+        return city ? cityName(city) : "";
+      }
+      // A saved custom title for these coords wins over coords / geocoding.
+      var custom = savedNameFor(loc.lat, loc.lon);
+      if (custom) { return custom; }
+      if (loc.type === "gps") {
+        return tf("myLocation", loc.lat, loc.lon);
+      }
+      // manual: numeric coordinates are language-neutral.
+      return loc.lat + ", " + loc.lon;
+    }
+
+    // Persistent cache of resolved place names, keyed by "lang|lat|lon" so each
+    // language's labels are stored separately. Read/written as one JSON object.
+    function readGeoCache() {
+      var raw = null;
+      try { raw = localStorage.getItem(GEO_KEY); } catch (e) { return {}; }
+      if (!raw) { return {}; }
+      try {
+        var obj = JSON.parse(raw);
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch (e) { return {}; }
+    }
+
+    function writeGeoCache(cache) {
+      try { localStorage.setItem(GEO_KEY, JSON.stringify(cache)); } catch (e) { /* ignore */ }
+    }
+
+    // Reverse-geocode coords to a localized place name via BigDataCloud's
+    // free, key-less, browser-CORS client endpoint. Resolves to "" on miss.
+    // Cached results are reused so identical coords never re-fetch.
+    function reverseGeocode(lat, lon) {
+      var lang = currentLang === "sr" ? "sr" : "en";
+      var key = lang + "|" + lat + "|" + lon;
+      var cache = readGeoCache();
+      if (Object.prototype.hasOwnProperty.call(cache, key)) {
+        return Promise.resolve(cache[key]);
+      }
+      var url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" +
+        lat + "&longitude=" + lon + "&localityLanguage=" + lang;
+      return fetch(url)
+        .then(function (res) {
+          if (!res.ok) { throw new Error("geo " + res.status); }
+          return res.json();
+        })
+        .then(function (d) {
+          var parts = [];
+          var place = d.city || d.locality || d.principalSubdivision;
+          if (place) { parts.push(place); }
+          if (d.countryName) { parts.push(d.countryName); }
+          var name = parts.join(", ");
+          var store = readGeoCache();
+          store[key] = name;
+          writeGeoCache(store);
+          return name;
+        });
+    }
+
     // ---- Core load path -----------------------------------------------------
-    function loadWeather(lat, lon, name) {
-      lat = round4(lat);
-      lon = round4(lon);
+    // True when lat/lon are numbers within geographic bounds.
+    function validLatLon(lat, lon) {
+      return typeof lat === "number" && typeof lon === "number" &&
+        lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    }
+
+    // Persist a location descriptor so the last pick reloads next visit.
+    function saveLocation(loc) {
+      try { localStorage.setItem(LOC_KEY, JSON.stringify(loc)); } catch (e) { /* ignore */ }
+    }
+
+    // Read and validate a stored descriptor; null if absent/malformed.
+    function loadSavedLocation() {
+      var raw = null;
+      try { raw = localStorage.getItem(LOC_KEY); } catch (e) { return null; }
+      if (!raw) { return null; }
+      var loc;
+      try { loc = JSON.parse(raw); } catch (e) { return null; }
+      if (!loc || typeof loc !== "object") { return null; }
+      if (loc.type === "city") {
+        if (typeof loc.cityIndex === "number" && CITIES[loc.cityIndex]) {
+          return { type: "city", cityIndex: loc.cityIndex };
+        }
+        return null;
+      }
+      if (loc.type === "gps" || loc.type === "manual") {
+        if (validLatLon(loc.lat, loc.lon)) {
+          return { type: loc.type, lat: loc.lat, lon: loc.lon };
+        }
+        return null;
+      }
+      return null;
+    }
+
+    // ---- Saved (favorite) locations -----------------------------------------
+    // A user-curated list of custom coordinates, persisted as a JSON array of
+    // { lat, lon, name? } — `name` is an optional user title that overrides the
+    // reverse-geocoded label. Rendered as clickable chips on the GPS tab.
+    function readSavedLocations() {
+      var raw = null;
+      try { raw = localStorage.getItem(SAVED_KEY); } catch (e) { return []; }
+      if (!raw) { return []; }
+      try {
+        var list = JSON.parse(raw);
+        if (!Array.isArray(list)) { return []; }
+        return list.filter(function (s) {
+          return s && validLatLon(s.lat, s.lon);
+        });
+      } catch (e) { return []; }
+    }
+
+    function writeSavedLocations(list) {
+      try { localStorage.setItem(SAVED_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+    }
+
+    // Custom title saved for these exact coords, or null. Coords are compared
+    // round4'd to match how saved entries (and loadWeather) round them.
+    function savedNameFor(lat, lon) {
+      var rLat = round4(lat);
+      var rLon = round4(lon);
+      var match = readSavedLocations().filter(function (s) {
+        return s.lat === rLat && s.lon === rLon && s.name;
+      })[0];
+      return match ? match.name : null;
+    }
+
+    function loadWeather(loc) {
+      currentLocation = loc;
+      saveLocation(loc);
+      refreshCityOptions();
+      refreshSaveState();
+      // City descriptors carry only cityIndex; resolve coords from CITIES.
+      var coords = loc;
+      if (loc.type === "city") {
+        coords = CITIES[loc.cityIndex];
+      }
+      var lat = round4(coords.lat);
+      var lon = round4(coords.lon);
 
       showOnly(elLoading);
 
@@ -756,7 +1449,7 @@
       fetch(url)
         .then(function (res) {
           if (!res.ok) {
-            throw new Error("Weather service returned HTTP " + res.status);
+            throw new Error(tf("httpError", res.status));
           }
           return res.json();
         })
@@ -766,15 +1459,29 @@
             data.properties.timeseries;
 
           if (!timeseries || !timeseries.length) {
-            throw new Error("No forecast data available for this location.");
+            throw new Error(t("noData"));
           }
 
-          renderCurrent(timeseries[0], name);
+          renderCurrent(timeseries[0], badgeFor(loc));
           renderPrecip(timeseries);
           showOnly(elWeather);
+
+          // GPS / manual: resolve a readable place name and swap it into the
+          // badge. Guard on object identity so a stale lookup can't clobber a
+          // newer location. Keep the coord badge on any failure. A saved custom
+          // title (already set by badgeFor) takes precedence — skip geocoding.
+          if ((loc.type === "gps" || loc.type === "manual") && !savedNameFor(lat, lon)) {
+            reverseGeocode(lat, lon)
+              .then(function (place) {
+                if (place && currentLocation === loc) {
+                  elBadge.textContent = place;
+                }
+              })
+              .catch(function () { /* keep coord badge */ });
+          }
         })
         .catch(function (err) {
-          elError.textContent = "Could not load weather: " + err.message;
+          elError.textContent = t("errorPrefix") + err.message;
           showOnly(elError);
         });
     }
@@ -785,7 +1492,8 @@
     var panels = {
       gps: document.getElementById("panel-gps"),
       city: document.getElementById("panel-city"),
-      manual: document.getElementById("panel-manual")
+      manual: document.getElementById("panel-manual"),
+      search: document.getElementById("panel-search")
     };
 
     Array.prototype.forEach.call(tabButtons, function (btn) {
@@ -809,37 +1517,178 @@
     document.getElementById("gps-btn").addEventListener("click", function () {
       clearNotice();
       if (!navigator.geolocation) {
-        showNotice("Geolocation unavailable — showing Belgrade instead.");
-        loadWeather(BELGRADE.lat, BELGRADE.lon, BELGRADE.name);
+        showNotice(t("geoUnavailable"));
+        loadWeather(BELGRADE);
         return;
       }
       navigator.geolocation.getCurrentPosition(
         function (pos) {
           var gLat = round4(pos.coords.latitude);
           var gLon = round4(pos.coords.longitude);
-          loadWeather(gLat, gLon, "My location (" + gLat + ", " + gLon + ")");
+          loadWeather({ type: "gps", lat: gLat, lon: gLon });
         },
         function () {
-          showNotice("Location access denied or unavailable — showing Belgrade instead.");
-          loadWeather(BELGRADE.lat, BELGRADE.lon, BELGRADE.name);
+          showNotice(t("geoDenied"));
+          loadWeather(BELGRADE);
         },
         { timeout: 8000 }
       );
     });
 
+    // Saved locations (favorites) on the GPS tab.
+    var savedList = document.getElementById("saved-list");
+    var saveBtn = document.getElementById("save-btn");
+    var saveSearchBtn = document.getElementById("save-search-btn");
+
+    // Enable "Save location" only when the current location is a custom
+    // coordinate (GPS / manual); cities already live in the dropdown.
+    function refreshSaveState() {
+      var custom = currentLocation && currentLocation.type !== "city";
+      var lat = custom ? round4(currentLocation.lat) : null;
+      var lon = custom ? round4(currentLocation.lon) : null;
+      var already = custom && readSavedLocations().some(function (s) {
+        return s.lat === lat && s.lon === lon;
+      });
+      var disabled = !custom || already;
+      if (saveBtn) { saveBtn.disabled = disabled; }
+      if (saveSearchBtn) { saveSearchBtn.disabled = disabled; }
+    }
+
+    // Render the saved-location chips. Each chip loads its coords on click, and
+    // carries a ✎ to rename and a ✕ to remove it. A user `name` is shown as-is;
+    // otherwise the label reverse-geocodes (cached → instant).
+    function renderSavedLocations() {
+      if (!savedList) { return; }
+      var list = readSavedLocations();
+      while (savedList.firstChild) {
+        savedList.removeChild(savedList.firstChild);
+      }
+      list.forEach(function (item) {
+        var chip = document.createElement("div");
+        chip.className = "saved-chip";
+
+        var load = document.createElement("button");
+        load.type = "button";
+        load.className = "saved-chip-load";
+        if (item.name) {
+          load.textContent = item.name;
+        } else {
+          load.textContent = item.lat + ", " + item.lon;
+          reverseGeocode(item.lat, item.lon)
+            .then(function (place) { if (place) { load.textContent = place; } })
+            .catch(function () { /* keep coord label */ });
+        }
+        load.addEventListener("click", function () {
+          clearNotice();
+          loadWeather({ type: "manual", lat: item.lat, lon: item.lon });
+        });
+
+        var edit = document.createElement("button");
+        edit.type = "button";
+        edit.className = "saved-chip-edit";
+        edit.textContent = "✎";
+        edit.setAttribute("aria-label", t("editLocation"));
+        edit.addEventListener("click", function () {
+          openRename(item, load.textContent);
+        });
+
+        var remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "saved-chip-remove";
+        remove.textContent = "✕";
+        remove.setAttribute("aria-label", t("removeLocation"));
+        remove.addEventListener("click", function () {
+          var next = readSavedLocations().filter(function (s) {
+            return !(s.lat === item.lat && s.lon === item.lon);
+          });
+          writeSavedLocations(next);
+          renderSavedLocations();
+          refreshSaveState();
+        });
+
+        chip.appendChild(load);
+        chip.appendChild(edit);
+        chip.appendChild(remove);
+        savedList.appendChild(chip);
+      });
+    }
+
+    saveBtn.addEventListener("click", function () {
+      if (!currentLocation || currentLocation.type === "city") { return; }
+      var lat = round4(currentLocation.lat);
+      var lon = round4(currentLocation.lon);
+      var list = readSavedLocations();
+      var exists = list.some(function (s) {
+        return s.lat === lat && s.lon === lon;
+      });
+      if (!exists) {
+        list.push({ lat: lat, lon: lon });
+        writeSavedLocations(list);
+        renderSavedLocations();
+      }
+      refreshSaveState();
+      showNotice(t("locationSaved"));
+    });
+
+    if (saveSearchBtn) {
+      saveSearchBtn.addEventListener("click", function () {
+        if (!currentLocation || currentLocation.type === "city") { return; }
+        var lat = round4(currentLocation.lat);
+        var lon = round4(currentLocation.lon);
+        var list = readSavedLocations();
+        var exists = list.some(function (s) {
+          return s.lat === lat && s.lon === lon;
+        });
+        if (!exists) {
+          list.push({ lat: lat, lon: lon });
+          writeSavedLocations(list);
+          renderSavedLocations();
+        }
+        refreshSaveState();
+        showNotice(t("locationSaved"));
+      });
+    }
+
     // City dropdown.
     var citySelect = document.getElementById("city-select");
-    CITIES.forEach(function (city, index) {
-      var opt = document.createElement("option");
-      opt.value = String(index);
-      opt.textContent = city.name;
-      citySelect.appendChild(opt);
-    });
+
+    // (Re)build dropdown option labels from the active-language display name,
+    // preserving the selected index. Called on load and on language change.
+    function refreshCityOptions() {
+      var selected = citySelect.value;
+      while (citySelect.firstChild) {
+        citySelect.removeChild(citySelect.firstChild);
+      }
+      // When the displayed location isn't a dropdown city (GPS / manual),
+      // prepend a disabled placeholder entry and select it.
+      var isCustom = currentLocation && currentLocation.type !== "city";
+      if (isCustom) {
+        var ph = document.createElement("option");
+        ph.value = "";
+        ph.textContent = t("cityCustom");
+        ph.disabled = true;
+        citySelect.appendChild(ph);
+      }
+      CITIES.forEach(function (city, index) {
+        var opt = document.createElement("option");
+        opt.value = String(index);
+        opt.textContent = cityName(city);
+        citySelect.appendChild(opt);
+      });
+      if (currentLocation && currentLocation.type === "city") {
+        citySelect.value = String(currentLocation.cityIndex);
+      } else if (isCustom) {
+        citySelect.value = "";
+      } else if (selected !== "") {
+        citySelect.value = selected;
+      }
+    }
+
     citySelect.addEventListener("change", function () {
       clearNotice();
-      var city = CITIES[parseInt(citySelect.value, 10)];
-      if (city) {
-        loadWeather(city.lat, city.lon, city.name);
+      var index = parseInt(citySelect.value, 10);
+      if (CITIES[index]) {
+        loadWeather({ type: "city", cityIndex: index });
       }
     });
 
@@ -854,27 +1703,272 @@
       var lon = parseFloat(lonInput.value);
 
       if (isNaN(lat) || isNaN(lon)) {
-        manualError.textContent = "Please enter valid numeric latitude and longitude.";
+        manualError.textContent = t("invalidNumeric");
         return;
       }
       if (lat < -90 || lat > 90) {
-        manualError.textContent = "Latitude must be between -90 and 90.";
+        manualError.textContent = t("latRange");
         return;
       }
       if (lon < -180 || lon > 180) {
-        manualError.textContent = "Longitude must be between -180 and 180.";
+        manualError.textContent = t("lonRange");
         return;
       }
 
       clearNotice();
       var rLat = round4(lat);
       var rLon = round4(lon);
-      loadWeather(rLat, rLon, rLat + ", " + rLon);
+      loadWeather({ type: "manual", lat: rLat, lon: rLon });
+    });
+
+    // ---- Place-name search (Nominatim / OpenStreetMap) ----------------------
+    var searchInput = document.getElementById("search-input");
+    var searchBtn = document.getElementById("search-btn");
+    var searchError = document.getElementById("search-error");
+    var searchResults = document.getElementById("search-results");
+
+    function clearSearchResults() {
+      while (searchResults.firstChild) {
+        searchResults.removeChild(searchResults.firstChild);
+      }
+    }
+
+    function doSearch() {
+      var query = searchInput.value.trim();
+      searchError.textContent = "";
+      searchError.classList.add("hidden");
+      clearSearchResults();
+      if (!query) { return; }
+
+      searchBtn.disabled = true;
+      var lang = currentLang === "sr" ? "sr" : "en";
+      var params = new URLSearchParams({
+        q: query,
+        format: "json",
+        limit: "6",
+        "accept-language": lang
+      });
+      var url = "https://nominatim.openstreetmap.org/search?" + params.toString();
+
+      fetch(url)
+        .then(function (res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function (results) {
+          searchBtn.disabled = false;
+          if (!results || !results.length) {
+            searchError.textContent = t("searchNoResults");
+            searchError.classList.remove("hidden");
+            return;
+          }
+          results.forEach(function (result) {
+            var lat = parseFloat(result.lat);
+            var lon = parseFloat(result.lon);
+            if (!validLatLon(lat, lon)) { return; }
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "search-result-btn";
+            btn.textContent = result.display_name;
+            btn.addEventListener("click", function () {
+              clearNotice();
+              clearSearchResults();
+              searchError.textContent = "";
+              loadWeather({ type: "manual", lat: round4(lat), lon: round4(lon) });
+            });
+            searchResults.appendChild(btn);
+          });
+        })
+        .catch(function () {
+          searchBtn.disabled = false;
+          searchError.textContent = t("searchError");
+          searchError.classList.remove("hidden");
+        });
+    }
+
+    searchBtn.addEventListener("click", doSearch);
+    searchInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { doSearch(); }
+    });
+
+    // ---- Static-string application & language switching ---------------------
+    var langButtons = document.querySelectorAll(".lang-btn");
+
+    // Apply every dictionary-driven static string to the DOM for currentLang.
+    function applyStaticStrings() {
+      document.documentElement.lang = currentLang;
+      document.title = t("title");
+
+      var textNodes = document.querySelectorAll("[data-i18n]");
+      Array.prototype.forEach.call(textNodes, function (node) {
+        node.textContent = t(node.getAttribute("data-i18n"));
+      });
+
+      var phNodes = document.querySelectorAll("[data-i18n-placeholder]");
+      Array.prototype.forEach.call(phNodes, function (node) {
+        node.setAttribute("placeholder", t(node.getAttribute("data-i18n-placeholder")));
+      });
+
+      var ariaNodes = document.querySelectorAll("[data-i18n-aria]");
+      Array.prototype.forEach.call(ariaNodes, function (node) {
+        node.setAttribute("aria-label", t(node.getAttribute("data-i18n-aria")));
+      });
+
+      var loadingText = document.getElementById("loading-text");
+      if (loadingText) { loadingText.textContent = t("loading"); }
+
+      refreshCityOptions();
+    }
+
+    // Mark the toggle button matching currentLang as active.
+    function markActiveLang() {
+      Array.prototype.forEach.call(langButtons, function (btn) {
+        if (btn.getAttribute("data-lang") === currentLang) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+    }
+
+    function setLanguage(lang) {
+      if (lang !== "sr" && lang !== "en") { return; }
+      currentLang = lang;
+      try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
+      markActiveLang();
+      applyStaticStrings();
+      // Re-render saved chips so their place names reload in the new language.
+      renderSavedLocations();
+      // Re-fetch the current location so dynamic strings (description, banner,
+      // badge) reflect the new language.
+      if (currentLocation) {
+        loadWeather(currentLocation);
+      }
+    }
+
+    Array.prototype.forEach.call(langButtons, function (btn) {
+      btn.addEventListener("click", function () {
+        setLanguage(btn.getAttribute("data-lang"));
+      });
+    });
+
+    // ---- Settings modal -----------------------------------------------------
+    var settingsOverlay = document.getElementById("settings-overlay");
+    var settingsOpenBtn = document.getElementById("settings-open");
+    var settingsCloseBtn = document.getElementById("settings-close");
+
+    function openSettings() {
+      settingsOverlay.classList.remove("hidden");
+    }
+
+    function closeSettings() {
+      settingsOverlay.classList.add("hidden");
+    }
+
+    settingsOpenBtn.addEventListener("click", openSettings);
+    settingsCloseBtn.addEventListener("click", closeSettings);
+
+    // Click on the backdrop (outside the dialog) closes the modal.
+    settingsOverlay.addEventListener("click", function (e) {
+      if (e.target === settingsOverlay) { closeSettings(); }
+    });
+
+    // ---- Rename saved-location modal ----------------------------------------
+    var renameOverlay = document.getElementById("rename-overlay");
+    var renameForm = document.getElementById("rename-form");
+    var renameInput = document.getElementById("rename-input");
+    var renameCloseBtn = document.getElementById("rename-close");
+    var renameCancelBtn = document.getElementById("rename-cancel");
+    var renameTarget = null; // { lat, lon } of the chip being edited
+
+    function openRename(item, currentLabel) {
+      renameTarget = item;
+      renameInput.value = item.name || currentLabel || "";
+      renameOverlay.classList.remove("hidden");
+      renameInput.focus();
+      renameInput.select();
+    }
+
+    function closeRename() {
+      renameOverlay.classList.add("hidden");
+      renameTarget = null;
+    }
+
+    renameForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!renameTarget) { closeRename(); return; }
+      var next = renameInput.value.trim();
+      var updated = readSavedLocations().map(function (s) {
+        if (s.lat === renameTarget.lat && s.lon === renameTarget.lon) {
+          var copy = { lat: s.lat, lon: s.lon };
+          if (next) { copy.name = next; } // empty clears the custom title
+          return copy;
+        }
+        return s;
+      });
+      writeSavedLocations(updated);
+      renderSavedLocations();
+      // If the renamed location is the one on screen, refresh its badge.
+      if (currentLocation &&
+          (currentLocation.type === "gps" || currentLocation.type === "manual") &&
+          round4(currentLocation.lat) === renameTarget.lat &&
+          round4(currentLocation.lon) === renameTarget.lon) {
+        if (next) {
+          elBadge.textContent = next;
+        } else {
+          reverseGeocode(round4(currentLocation.lat), round4(currentLocation.lon))
+            .then(function (place) { if (place) { elBadge.textContent = place; } })
+            .catch(function () { /* keep current badge */ });
+        }
+      }
+      closeRename();
+    });
+
+    renameCloseBtn.addEventListener("click", closeRename);
+    renameCancelBtn.addEventListener("click", closeRename);
+    renameOverlay.addEventListener("click", function (e) {
+      if (e.target === renameOverlay) { closeRename(); }
+    });
+
+    // Escape closes whichever modal is open.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") { return; }
+      if (!renameOverlay.classList.contains("hidden")) {
+        closeRename();
+      } else if (!settingsOverlay.classList.contains("hidden")) {
+        closeSettings();
+      }
+    });
+
+    // ---- Selector visibility (managed from settings) ------------------------
+    var elSelector = document.getElementById("selector-section");
+    var selectorVisToggle = document.getElementById("selector-vis-toggle");
+
+    // Default visible on first visit (key absent → not "1" → visible).
+    function readSelectorCollapsed() {
+      try { return localStorage.getItem(SELECTOR_COLLAPSE_KEY) === "1"; } catch (e) { return false; }
+    }
+
+    function applySelectorCollapsed(collapsed) {
+      elSelector.classList.toggle("hidden", collapsed);
+      if (selectorVisToggle) {
+        selectorVisToggle.checked = !collapsed;
+      }
+    }
+
+    selectorVisToggle.addEventListener("change", function () {
+      var collapsed = !selectorVisToggle.checked;
+      try { localStorage.setItem(SELECTOR_COLLAPSE_KEY, collapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+      applySelectorCollapsed(collapsed);
     });
 
     // ---- Default load -------------------------------------------------------
     document.addEventListener("DOMContentLoaded", function () {
-      loadWeather(BELGRADE.lat, BELGRADE.lon, BELGRADE.name);
+      markActiveLang();
+      applyStaticStrings();
+      renderSavedLocations();
+      applySelectorCollapsed(readSelectorCollapsed());
+      loadWeather(loadSavedLocation() || BELGRADE);
     });
   </script>
 </body>

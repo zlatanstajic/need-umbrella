@@ -301,6 +301,43 @@
       min-width: 0;
     }
 
+    /* Clear-input ("x") button: wraps an input so the button overlays its right edge. */
+    .input-wrap {
+      position: relative;
+      display: flex;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .input-wrap > input {
+      width: 100%;
+      padding-right: 2rem;
+    }
+
+    .input-clear {
+      position: absolute;
+      top: 50%;
+      right: 0.4rem;
+      transform: translateY(-50%);
+      width: 1.5rem;
+      height: 1.5rem;
+      min-height: 0;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+    }
+
+    .input-clear:hover { color: var(--text); }
+
+    /* Show the button only when the input holds a value (placeholder no longer shown). */
+    .input-wrap > input:not(:placeholder-shown) + .input-clear { display: block; }
+
     .btn {
       min-height: 44px;
       padding: 0.6rem 1rem;
@@ -480,6 +517,42 @@
       margin-top: 0.3rem;
     }
 
+    /* Compare layout: two slot cards side by side, collapsing on narrow screens */
+    .compare-cards {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+
+    .compare-cards.compare-on {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (max-width: 560px) {
+      .compare-cards.compare-on {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .slot-card {
+      display: grid;
+      gap: 1rem;
+      align-content: start;
+    }
+
+    .compare-selector-heading {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      color: var(--accent);
+    }
+
+    .precip-chart-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
     /* Precipitation */
     .precip {
       background: var(--panel);
@@ -613,6 +686,13 @@
           <span class="toggle-track" aria-hidden="true"></span>
         </label>
       </div>
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="compareLabel">Compare two locations</span>
+        <label class="toggle">
+          <input type="checkbox" id="compare-toggle">
+          <span class="toggle-track" aria-hidden="true"></span>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -696,6 +776,59 @@
       </div>
     </section>
 
+    <section class="selector hidden" id="selector-section-b">
+      <h2 class="compare-selector-heading" data-i18n="compareSecondHeading">Second location</h2>
+      <div id="selector-body-b">
+      <div class="tabs">
+        <button type="button" class="tab-btn active" data-tab="gps" data-i18n="tabGps">📍 GPS</button>
+        <button type="button" class="tab-btn" data-tab="city" data-i18n="tabCity">🏙️ City</button>
+        <button type="button" class="tab-btn" data-tab="manual" data-i18n="tabManual">🧭 Manual</button>
+        <button type="button" class="tab-btn" data-tab="search" data-i18n="tabSearch">🔍 Search</button>
+      </div>
+
+      <div class="panel" id="b-panel-gps">
+        <div class="row">
+          <div class="saved-chip">
+            <button type="button" class="saved-chip-load" id="b-gps-btn" data-i18n="gpsBtn">📍 Use my location</button>
+          </div>
+        </div>
+        <div class="saved-list" id="b-saved-list"></div>
+      </div>
+
+      <div class="panel hidden" id="b-panel-city">
+        <div class="row">
+          <select id="b-city-select"></select>
+        </div>
+      </div>
+
+      <div class="panel hidden" id="b-panel-manual">
+        <div class="row">
+          <label for="b-lat-input" data-i18n="latLabel">Latitude</label>
+          <input type="number" id="b-lat-input" step="any" placeholder="-90 to 90" data-i18n-placeholder="latPlaceholder">
+        </div>
+        <div class="row">
+          <label for="b-lon-input" data-i18n="lonLabel">Longitude</label>
+          <input type="number" id="b-lon-input" step="any" placeholder="-180 to 180" data-i18n-placeholder="lonPlaceholder">
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="b-manual-btn" data-i18n="manualBtn">Get weather</button>
+        </div>
+        <div class="inline-error" id="b-manual-error"></div>
+      </div>
+
+      <div class="panel hidden" id="b-panel-search">
+        <div class="row">
+          <input type="text" id="b-search-input" data-i18n-placeholder="searchPlaceholder">
+        </div>
+        <div class="inline-error hidden" id="b-search-error"></div>
+        <div class="search-results" id="b-search-results"></div>
+        <div class="row">
+          <button type="button" class="btn" id="b-search-btn" data-i18n="searchBtn">Search</button>
+        </div>
+      </div>
+      </div>
+    </section>
+
     <div class="notice hidden" id="notice"></div>
 
     <div class="state" id="loading">
@@ -706,37 +839,75 @@
     <div class="state error-state hidden" id="error"></div>
 
     <section id="weather" class="hidden">
-      <span class="location-badge" id="location-badge"></span>
+      <div class="compare-cards" id="compare-cards">
+        <div class="slot-card" id="slot-card-a">
+          <span class="location-badge" id="location-badge"></span>
 
-      <div class="current">
-        <div class="emoji" id="cur-emoji"></div>
-        <div class="temp" id="cur-temp"></div>
-        <p class="desc" id="cur-desc"></p>
-      </div>
+          <div class="current">
+            <div class="emoji" id="cur-emoji"></div>
+            <div class="temp" id="cur-temp"></div>
+            <p class="desc" id="cur-desc"></p>
+          </div>
 
-      <div class="tiles">
-        <div class="tile">
-          <div class="tile-label" data-i18n="tileHumidity">Humidity</div>
-          <div class="tile-value" id="tile-humidity"></div>
+          <div class="tiles">
+            <div class="tile">
+              <div class="tile-label" data-i18n="tileHumidity">Humidity</div>
+              <div class="tile-value" id="tile-humidity"></div>
+            </div>
+            <div class="tile">
+              <div class="tile-label" data-i18n="tileWind">Wind</div>
+              <div class="tile-value" id="tile-wind"></div>
+            </div>
+            <div class="tile">
+              <div class="tile-label" data-i18n="tilePressure">Pressure</div>
+              <div class="tile-value" id="tile-pressure"></div>
+            </div>
+            <div class="tile">
+              <div class="tile-label" data-i18n="tileCloud">Cloud cover</div>
+              <div class="tile-value" id="tile-cloud"></div>
+            </div>
+          </div>
         </div>
-        <div class="tile">
-          <div class="tile-label" data-i18n="tileWind">Wind</div>
-          <div class="tile-value" id="tile-wind"></div>
-        </div>
-        <div class="tile">
-          <div class="tile-label" data-i18n="tilePressure">Pressure</div>
-          <div class="tile-value" id="tile-pressure"></div>
-        </div>
-        <div class="tile">
-          <div class="tile-label" data-i18n="tileCloud">Cloud cover</div>
-          <div class="tile-value" id="tile-cloud"></div>
+
+        <div class="slot-card hidden" id="slot-card-b">
+          <span class="location-badge" id="b-location-badge"></span>
+
+          <div class="current">
+            <div class="emoji" id="b-cur-emoji"></div>
+            <div class="temp" id="b-cur-temp"></div>
+            <p class="desc" id="b-cur-desc"></p>
+          </div>
+
+          <div class="tiles">
+            <div class="tile">
+              <div class="tile-label" data-i18n="tileHumidity">Humidity</div>
+              <div class="tile-value" id="b-tile-humidity"></div>
+            </div>
+            <div class="tile">
+              <div class="tile-label" data-i18n="tileWind">Wind</div>
+              <div class="tile-value" id="b-tile-wind"></div>
+            </div>
+            <div class="tile">
+              <div class="tile-label" data-i18n="tilePressure">Pressure</div>
+              <div class="tile-value" id="b-tile-pressure"></div>
+            </div>
+            <div class="tile">
+              <div class="tile-label" data-i18n="tileCloud">Cloud cover</div>
+              <div class="tile-value" id="b-tile-cloud"></div>
+            </div>
+          </div>
         </div>
       </div>
 
       <section class="precip">
         <h2 data-i18n="next24">Next 24 hours</h2>
+        <div class="precip-chart-label hidden" id="chart-label-a"></div>
         <div class="precip-banner" id="precip-banner"></div>
         <div class="chart" id="chart"></div>
+
+        <div class="precip-chart-label hidden" id="chart-label-b"></div>
+        <div class="precip-banner hidden" id="b-precip-banner"></div>
+        <div class="chart hidden" id="b-chart"></div>
       </section>
     </section>
   </main>
@@ -765,7 +936,7 @@
         title: "Treba li kišobran? — Vremenska prognoza",
         headerTitle: "Treba li kišobran? ☔",
         headerRain: "Treba vam kišobran ☔",
-        headerDry: "Ostavite kišobran kod kuće 🌤️",
+        headerDry: "Ostavite kišobran 🌤️",
         headerSubtitle: "Trenutno vreme i prognoza kiše za narednih 24h",
         settingsTitle: "Podešavanja",
         settingsOpen: "Podešavanja",
@@ -776,6 +947,8 @@
         tabManual: "🧭 Ručno",
         selectorSection: "Izbor lokacije",
         selectorVisLabel: "Prikaži izbor lokacije",
+        compareLabel: "Uporedi dve lokacije",
+        compareSecondHeading: "Druga lokacija",
         gpsBtn: "📍 Koristi moju lokaciju",
         saveLocation: "Sačuvaj lokaciju",
         removeLocation: "Ukloni lokaciju",
@@ -873,7 +1046,7 @@
         title: "Need Umbrella? — Weather",
         headerTitle: "Need Umbrella? ☔",
         headerRain: "You need an umbrella ☔",
-        headerDry: "Leave umbrella at home 🌤️",
+        headerDry: "Leave umbrella 🌤️",
         headerSubtitle: "Live weather and 24-hour rain outlook",
         settingsTitle: "Settings",
         settingsOpen: "Settings",
@@ -884,6 +1057,8 @@
         tabManual: "🧭 Manual",
         selectorSection: "Choose location",
         selectorVisLabel: "Show location selector",
+        compareLabel: "Compare two locations",
+        compareSecondHeading: "Second location",
         gpsBtn: "📍 Use my location",
         saveLocation: "Save location",
         removeLocation: "Remove location",
@@ -984,6 +1159,7 @@
     var GEO_KEY = "needUmbrellaGeo";
     var SAVED_KEY = "needUmbrellaSaved";
     var SELECTOR_COLLAPSE_KEY = "needUmbrellaSelectorCollapsed";
+    var COMPARE_KEY = "needUmbrellaCompare";
 
     var currentLang = (function () {
       var saved = null;
@@ -1049,6 +1225,54 @@
     var elCloud = document.getElementById("tile-cloud");
     var elPrecipBanner = document.getElementById("precip-banner");
     var elChart = document.getElementById("chart");
+
+    // A "slot" bundles the render-target nodes for one location so renderCurrent
+    // and renderPrecip can write into either the primary set (above) or a
+    // secondary compare set without depending on the module-level singletons.
+    var primarySlot = {
+      badge: elBadge,
+      emoji: elEmoji,
+      temp: elTemp,
+      desc: elDesc,
+      humidity: elHumidity,
+      wind: elWind,
+      pressure: elPressure,
+      cloud: elCloud,
+      precipBanner: elPrecipBanner,
+      chart: elChart,
+      chartLabel: document.getElementById("chart-label-a")
+    };
+
+    // The secondary (compare) slot mirrors primarySlot's shape for the slot-B nodes.
+    var secondarySlot = {
+      badge: document.getElementById("b-location-badge"),
+      emoji: document.getElementById("b-cur-emoji"),
+      temp: document.getElementById("b-cur-temp"),
+      desc: document.getElementById("b-cur-desc"),
+      humidity: document.getElementById("b-tile-humidity"),
+      wind: document.getElementById("b-tile-wind"),
+      pressure: document.getElementById("b-tile-pressure"),
+      cloud: document.getElementById("b-tile-cloud"),
+      precipBanner: document.getElementById("b-precip-banner"),
+      chart: document.getElementById("b-chart"),
+      chartLabel: document.getElementById("chart-label-b")
+    };
+
+    // ---- Linked chart scroll (compare mode) ---------------------------------
+    // When comparing, scrolling one rain chart scrolls the other in lockstep.
+    // syncingScroll guards against the echo (setting scrollLeft fires "scroll").
+    var syncingScroll = false;
+    function linkChartScroll(source, target) {
+      source.addEventListener("scroll", function () {
+        if (syncingScroll) { return; }
+        if (!compareMode) { return; }
+        syncingScroll = true;
+        target.scrollLeft = source.scrollLeft;
+        syncingScroll = false;
+      });
+    }
+    linkChartScroll(primarySlot.chart, secondarySlot.chart);
+    linkChartScroll(secondarySlot.chart, primarySlot.chart);
 
     // ---- State toggling -----------------------------------------------------
     function showOnly(el) {
@@ -1166,7 +1390,8 @@
     }
 
     // ---- Current conditions render -----------------------------------------
-    function renderCurrent(ts, name) {
+    // Writes into the given slot's current-conditions / tile nodes.
+    function renderCurrent(ts, name, slot) {
       var details = ts.data.instant.details || {};
 
       // symbol_code: prefer next_1_hours, fall back to 6h then 12h.
@@ -1179,15 +1404,16 @@
         symbol = ts.data.next_12_hours.summary.symbol_code;
       }
 
-      elBadge.textContent = name;
-      elEmoji.textContent = symbolToEmoji(symbol);
-      elDesc.textContent = describe(symbol);
+      slot.badge.textContent = name;
+      if (slot.chartLabel) { slot.chartLabel.textContent = name; }
+      slot.emoji.textContent = symbolToEmoji(symbol);
+      slot.desc.textContent = describe(symbol);
 
       var temp = details.air_temperature;
-      elTemp.textContent = (temp === undefined ? "--" : Math.round(temp)) + "°C";
+      slot.temp.textContent = (temp === undefined ? "--" : Math.round(temp)) + "°C";
 
       var humidity = details.relative_humidity;
-      elHumidity.textContent = (humidity === undefined ? "--" : Math.round(humidity)) + "%";
+      slot.humidity.textContent = (humidity === undefined ? "--" : Math.round(humidity)) + "%";
 
       var windSpeed = details.wind_speed;
       var windDir = details.wind_from_direction;
@@ -1195,17 +1421,33 @@
       if (windDir !== undefined) {
         windText += " " + degreesToCompass(windDir);
       }
-      elWind.textContent = windText;
+      slot.wind.textContent = windText;
 
       var pressure = details.air_pressure_at_sea_level;
-      elPressure.textContent = (pressure === undefined ? "--" : Math.round(pressure)) + " hPa";
+      slot.pressure.textContent = (pressure === undefined ? "--" : Math.round(pressure)) + " hPa";
 
       var cloud = details.cloud_area_fraction;
-      elCloud.textContent = (cloud === undefined ? "--" : Math.round(cloud)) + "%";
+      slot.cloud.textContent = (cloud === undefined ? "--" : Math.round(cloud)) + "%";
+    }
+
+    // Set the page <title> and #header-title to the rain ("need umbrella") or
+    // dry message. The umbrella message wins when the primary will rain, or — in
+    // compare mode — when EITHER location will rain.
+    function updateHeaderTitle() {
+      var rain = primarySlot.isRain;
+      if (compareMode && secondaryLocation) {
+        rain = rain || secondarySlot.isRain;
+      }
+      var headerTitle = document.getElementById("header-title");
+      var dynamicTitle = t(rain ? "headerRain" : "headerDry");
+      if (headerTitle) { headerTitle.textContent = dynamicTitle; }
+      document.title = dynamicTitle;
     }
 
     // ---- 24-hour precipitation ----------------------------------------------
-    function renderPrecip(timeseries) {
+    // Writes into the given slot's precip banner / chart nodes, records the
+    // slot's rain verdict on `slot.isRain`, then recomputes the header title.
+    function renderPrecip(timeseries, slot) {
       // Floor to the start of the current hour so the current-hour entry
       // (timeseries[0], whose time is the top of this hour) is included.
       var now = new Date();
@@ -1237,25 +1479,25 @@
       }
 
       // Banner.
-      elPrecipBanner.classList.remove("rain", "dry");
+      slot.precipBanner.classList.remove("rain", "dry");
       var totalText = total.toFixed(1) + " mm";
       var isRain = total >= PRECIP_THRESHOLD_MM;
       if (isRain) {
-        elPrecipBanner.classList.add("rain");
-        elPrecipBanner.textContent = tf("rainBanner", totalText);
+        slot.precipBanner.classList.add("rain");
+        slot.precipBanner.textContent = tf("rainBanner", totalText);
       } else {
-        elPrecipBanner.classList.add("dry");
-        elPrecipBanner.textContent = tf("dryBanner", totalText);
+        slot.precipBanner.classList.add("dry");
+        slot.precipBanner.textContent = tf("dryBanner", totalText);
       }
 
-      var headerTitle = document.getElementById("header-title");
-      var dynamicTitle = t(isRain ? "headerRain" : "headerDry");
-      if (headerTitle) { headerTitle.textContent = dynamicTitle; }
-      document.title = dynamicTitle;
+      // Remember this slot's rain verdict, then recompute the header. In compare
+      // mode the umbrella message wins when EITHER location will rain.
+      slot.isRain = isRain;
+      updateHeaderTitle();
 
       // Bar chart, DOM methods only.
-      while (elChart.firstChild) {
-        elChart.removeChild(elChart.firstChild);
+      while (slot.chart.firstChild) {
+        slot.chart.removeChild(slot.chart.firstChild);
       }
 
       var maxAmount = 0;
@@ -1287,7 +1529,7 @@
         hourLabel.textContent = (hh < 10 ? "0" + hh : hh) + ":00";
         col.appendChild(hourLabel);
 
-        elChart.appendChild(col);
+        slot.chart.appendChild(col);
       }
     }
 
@@ -1297,6 +1539,12 @@
     // Shape: { type: "city", cityIndex } | { type: "gps", lat, lon }
     //      | { type: "manual", lat, lon }
     var currentLocation = null;
+
+    // Compare mode is session-only — never persisted. When on, a second selector
+    // and a second render slot become active. secondaryLocation is the slot-B
+    // descriptor (null until a slot-B location is chosen).
+    var compareMode = false;
+    var secondaryLocation = null;
 
     // Compose the location badge text for a descriptor in the active language.
     function badgeFor(loc) {
@@ -1373,13 +1621,8 @@
       try { localStorage.setItem(LOC_KEY, JSON.stringify(loc)); } catch (e) { /* ignore */ }
     }
 
-    // Read and validate a stored descriptor; null if absent/malformed.
-    function loadSavedLocation() {
-      var raw = null;
-      try { raw = localStorage.getItem(LOC_KEY); } catch (e) { return null; }
-      if (!raw) { return null; }
-      var loc;
-      try { loc = JSON.parse(raw); } catch (e) { return null; }
+    // Validate a parsed location descriptor; returns a clean copy or null.
+    function parseDescriptor(loc) {
       if (!loc || typeof loc !== "object") { return null; }
       if (loc.type === "city") {
         if (typeof loc.cityIndex === "number" && CITIES[loc.cityIndex]) {
@@ -1394,6 +1637,40 @@
         return null;
       }
       return null;
+    }
+
+    // Read and validate a stored descriptor; null if absent/malformed.
+    function loadSavedLocation() {
+      var raw = null;
+      try { raw = localStorage.getItem(LOC_KEY); } catch (e) { return null; }
+      if (!raw) { return null; }
+      var loc;
+      try { loc = JSON.parse(raw); } catch (e) { return null; }
+      return parseDescriptor(loc);
+    }
+
+    // Persist the compare-mode state (on/off + slot-B descriptor) so a
+    // comparison is restored next visit.
+    function saveCompareState() {
+      try {
+        localStorage.setItem(COMPARE_KEY, JSON.stringify({
+          on: compareMode,
+          loc: secondaryLocation
+        }));
+      } catch (e) { /* ignore */ }
+    }
+
+    // Read and validate the stored compare state; null if absent/malformed/off.
+    function loadCompareState() {
+      var raw = null;
+      try { raw = localStorage.getItem(COMPARE_KEY); } catch (e) { return null; }
+      if (!raw) { return null; }
+      var state;
+      try { state = JSON.parse(raw); } catch (e) { return null; }
+      if (!state || typeof state !== "object" || !state.on) { return null; }
+      var loc = parseDescriptor(state.loc);
+      if (!loc) { return null; }
+      return { on: true, loc: loc };
     }
 
     // ---- Saved (favorite) locations -----------------------------------------
@@ -1428,25 +1705,32 @@
       return match ? match.name : null;
     }
 
+    // Resolve a descriptor's rounded coords (cities resolve via CITIES).
+    function coordsFor(loc) {
+      var coords = loc;
+      if (loc.type === "city") {
+        coords = CITIES[loc.cityIndex];
+      }
+      return { lat: round4(coords.lat), lon: round4(coords.lon) };
+    }
+
+    function metUrl(lat, lon) {
+      var params = new URLSearchParams({ lat: lat, lon: lon });
+      return "https://api.met.no/weatherapi/locationforecast/2.0/compact?" + params.toString();
+    }
+
     function loadWeather(loc) {
       currentLocation = loc;
       saveLocation(loc);
       refreshCityOptions();
       refreshSaveState();
-      // City descriptors carry only cityIndex; resolve coords from CITIES.
-      var coords = loc;
-      if (loc.type === "city") {
-        coords = CITIES[loc.cityIndex];
-      }
-      var lat = round4(coords.lat);
-      var lon = round4(coords.lon);
+      var c = coordsFor(loc);
+      var lat = c.lat;
+      var lon = c.lon;
 
       showOnly(elLoading);
 
-      var params = new URLSearchParams({ lat: lat, lon: lon });
-      var url = "https://api.met.no/weatherapi/locationforecast/2.0/compact?" + params.toString();
-
-      fetch(url)
+      fetch(metUrl(lat, lon))
         .then(function (res) {
           if (!res.ok) {
             throw new Error(tf("httpError", res.status));
@@ -1462,8 +1746,8 @@
             throw new Error(t("noData"));
           }
 
-          renderCurrent(timeseries[0], badgeFor(loc));
-          renderPrecip(timeseries);
+          renderCurrent(timeseries[0], badgeFor(loc), primarySlot);
+          renderPrecip(timeseries, primarySlot);
           showOnly(elWeather);
 
           // GPS / manual: resolve a readable place name and swap it into the
@@ -1475,6 +1759,7 @@
               .then(function (place) {
                 if (place && currentLocation === loc) {
                   elBadge.textContent = place;
+                  if (primarySlot.chartLabel) { primarySlot.chartLabel.textContent = place; }
                 }
               })
               .catch(function () { /* keep coord badge */ });
@@ -1486,31 +1771,94 @@
         });
     }
 
+    // Load slot B into secondarySlot. Session-only: does not persist, does not
+    // touch the city dropdown / save state, and does not drive the page title or
+    // the loading/error state-swap (slot A owns the whole-view state). On error
+    // the slot-B badge shows the message so slot A stays intact. Stale lookups
+    // are guarded on secondaryLocation identity.
+    function loadSecondary(loc) {
+      secondaryLocation = loc;
+      saveCompareState();
+      var c = coordsFor(loc);
+      var lat = c.lat;
+      var lon = c.lon;
+
+      secondarySlot.badge.textContent = t("loading");
+
+      fetch(metUrl(lat, lon))
+        .then(function (res) {
+          if (!res.ok) {
+            throw new Error(tf("httpError", res.status));
+          }
+          return res.json();
+        })
+        .then(function (data) {
+          if (secondaryLocation !== loc) { return; }
+          var timeseries = data &&
+            data.properties &&
+            data.properties.timeseries;
+
+          if (!timeseries || !timeseries.length) {
+            throw new Error(t("noData"));
+          }
+
+          renderCurrent(timeseries[0], badgeFor(loc), secondarySlot);
+          renderPrecip(timeseries, secondarySlot);
+
+          if ((loc.type === "gps" || loc.type === "manual") && !savedNameFor(lat, lon)) {
+            reverseGeocode(lat, lon)
+              .then(function (place) {
+                if (place && secondaryLocation === loc) {
+                  secondarySlot.badge.textContent = place;
+                  if (secondarySlot.chartLabel) { secondarySlot.chartLabel.textContent = place; }
+                }
+              })
+              .catch(function () { /* keep coord badge */ });
+          }
+        })
+        .catch(function (err) {
+          if (secondaryLocation !== loc) { return; }
+          secondarySlot.badge.textContent = t("errorPrefix") + err.message;
+        });
+    }
+
     // ---- Location inputs ----------------------------------------------------
     // Tabs.
-    var tabButtons = document.querySelectorAll(".tab-btn");
-    var panels = {
+    // Wire tab-switching scoped to one selector body. `container` is the selector
+    // body whose `.tab-btn`s are toggled, and `panels` maps tab keys to that
+    // body's panels — so the two selectors switch tabs independently.
+    function wireTabs(container, panels) {
+      var tabButtons = container.querySelectorAll(".tab-btn");
+      Array.prototype.forEach.call(tabButtons, function (btn) {
+        btn.addEventListener("click", function () {
+          var tab = btn.getAttribute("data-tab");
+          Array.prototype.forEach.call(tabButtons, function (b) {
+            b.classList.remove("active");
+          });
+          btn.classList.add("active");
+          Object.keys(panels).forEach(function (key) {
+            if (key === tab) {
+              panels[key].classList.remove("hidden");
+            } else {
+              panels[key].classList.add("hidden");
+            }
+          });
+        });
+      });
+    }
+
+    wireTabs(document.getElementById("selector-body"), {
       gps: document.getElementById("panel-gps"),
       city: document.getElementById("panel-city"),
       manual: document.getElementById("panel-manual"),
       search: document.getElementById("panel-search")
-    };
+    });
 
-    Array.prototype.forEach.call(tabButtons, function (btn) {
-      btn.addEventListener("click", function () {
-        var tab = btn.getAttribute("data-tab");
-        Array.prototype.forEach.call(tabButtons, function (b) {
-          b.classList.remove("active");
-        });
-        btn.classList.add("active");
-        Object.keys(panels).forEach(function (key) {
-          if (key === tab) {
-            panels[key].classList.remove("hidden");
-          } else {
-            panels[key].classList.add("hidden");
-          }
-        });
-      });
+    wireTabs(document.getElementById("selector-body-b"), {
+      gps: document.getElementById("b-panel-gps"),
+      city: document.getElementById("b-panel-city"),
+      manual: document.getElementById("b-panel-manual"),
+      search: document.getElementById("b-panel-search")
     });
 
     // GPS.
@@ -1535,8 +1883,32 @@
       );
     });
 
+    // Slot-B GPS: funnels into loadSecondary instead of loadWeather. On
+    // unavailable/denied GPS, fall back to Belgrade for slot B with a notice.
+    document.getElementById("b-gps-btn").addEventListener("click", function () {
+      clearNotice();
+      if (!navigator.geolocation) {
+        showNotice(t("geoUnavailable"));
+        loadSecondary(BELGRADE);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          var gLat = round4(pos.coords.latitude);
+          var gLon = round4(pos.coords.longitude);
+          loadSecondary({ type: "gps", lat: gLat, lon: gLon });
+        },
+        function () {
+          showNotice(t("geoDenied"));
+          loadSecondary(BELGRADE);
+        },
+        { timeout: 8000 }
+      );
+    });
+
     // Saved locations (favorites) on the GPS tab.
     var savedList = document.getElementById("saved-list");
+    var savedListB = document.getElementById("b-saved-list");
     var saveBtn = document.getElementById("save-btn");
     var saveSearchBtn = document.getElementById("save-search-btn");
 
@@ -1554,14 +1926,16 @@
       if (saveSearchBtn) { saveSearchBtn.disabled = disabled; }
     }
 
-    // Render the saved-location chips. Each chip loads its coords on click, and
-    // carries a ✎ to rename and a ✕ to remove it. A user `name` is shown as-is;
-    // otherwise the label reverse-geocodes (cached → instant).
-    function renderSavedLocations() {
-      if (!savedList) { return; }
+    // Build the saved-location chips into a target list element. Each chip loads
+    // its coords on click via the supplied onLoad callback (slot A uses
+    // loadWeather, slot B uses loadSecondary), and carries a ✎ to rename and a ✕
+    // to remove it. A user `name` is shown as-is; otherwise the label
+    // reverse-geocodes (cached → instant).
+    function renderSavedInto(listEl, onLoad) {
+      if (!listEl) { return; }
       var list = readSavedLocations();
-      while (savedList.firstChild) {
-        savedList.removeChild(savedList.firstChild);
+      while (listEl.firstChild) {
+        listEl.removeChild(listEl.firstChild);
       }
       list.forEach(function (item) {
         var chip = document.createElement("div");
@@ -1579,8 +1953,7 @@
             .catch(function () { /* keep coord label */ });
         }
         load.addEventListener("click", function () {
-          clearNotice();
-          loadWeather({ type: "manual", lat: item.lat, lon: item.lon });
+          onLoad(item);
         });
 
         var edit = document.createElement("button");
@@ -1609,7 +1982,21 @@
         chip.appendChild(load);
         chip.appendChild(edit);
         chip.appendChild(remove);
-        savedList.appendChild(chip);
+        listEl.appendChild(chip);
+      });
+    }
+
+    // Render the saved-location chips into both slot-A and slot-B GPS panels.
+    // Slot-A chips load into the primary view (loadWeather); slot-B chips load
+    // into the comparison view (loadSecondary).
+    function renderSavedLocations() {
+      renderSavedInto(savedList, function (item) {
+        clearNotice();
+        loadWeather({ type: "manual", lat: item.lat, lon: item.lon });
+      });
+      renderSavedInto(savedListB, function (item) {
+        clearNotice();
+        loadSecondary({ type: "manual", lat: item.lat, lon: item.lon });
       });
     }
 
@@ -1651,6 +2038,7 @@
 
     // City dropdown.
     var citySelect = document.getElementById("city-select");
+    var citySelectB = document.getElementById("b-city-select");
 
     // (Re)build dropdown option labels from the active-language display name,
     // preserving the selected index. Called on load and on language change.
@@ -1682,6 +2070,39 @@
       } else if (selected !== "") {
         citySelect.value = selected;
       }
+
+      refreshCityOptionsB();
+    }
+
+    // Slot-B dropdown: mirrors the active-language labels and reflects
+    // secondaryLocation when it is a dropdown city; otherwise a disabled
+    // placeholder. No coupling to slot A's currentLocation.
+    function refreshCityOptionsB() {
+      var selectedB = citySelectB.value;
+      while (citySelectB.firstChild) {
+        citySelectB.removeChild(citySelectB.firstChild);
+      }
+      var isCustomB = secondaryLocation && secondaryLocation.type !== "city";
+      if (isCustomB || !secondaryLocation) {
+        var phB = document.createElement("option");
+        phB.value = "";
+        phB.textContent = t("cityCustom");
+        phB.disabled = true;
+        citySelectB.appendChild(phB);
+      }
+      CITIES.forEach(function (city, index) {
+        var opt = document.createElement("option");
+        opt.value = String(index);
+        opt.textContent = cityName(city);
+        citySelectB.appendChild(opt);
+      });
+      if (secondaryLocation && secondaryLocation.type === "city") {
+        citySelectB.value = String(secondaryLocation.cityIndex);
+      } else if (isCustomB || !secondaryLocation) {
+        citySelectB.value = "";
+      } else if (selectedB !== "") {
+        citySelectB.value = selectedB;
+      }
     }
 
     citySelect.addEventListener("change", function () {
@@ -1692,104 +2113,146 @@
       }
     });
 
-    // Manual entry.
+    citySelectB.addEventListener("change", function () {
+      clearNotice();
+      var index = parseInt(citySelectB.value, 10);
+      if (CITIES[index]) {
+        loadSecondary({ type: "city", cityIndex: index });
+      }
+    });
+
+    // Manual entry. Shared validation feeds either slot via `onValid`.
+    function handleManual(latEl, lonEl, errEl, onValid) {
+      errEl.textContent = "";
+      var lat = parseFloat(latEl.value);
+      var lon = parseFloat(lonEl.value);
+
+      if (isNaN(lat) || isNaN(lon)) {
+        errEl.textContent = t("invalidNumeric");
+        return;
+      }
+      if (lat < -90 || lat > 90) {
+        errEl.textContent = t("latRange");
+        return;
+      }
+      if (lon < -180 || lon > 180) {
+        errEl.textContent = t("lonRange");
+        return;
+      }
+
+      clearNotice();
+      onValid(round4(lat), round4(lon));
+    }
+
     var latInput = document.getElementById("lat-input");
     var lonInput = document.getElementById("lon-input");
     var manualError = document.getElementById("manual-error");
 
     document.getElementById("manual-btn").addEventListener("click", function () {
-      manualError.textContent = "";
-      var lat = parseFloat(latInput.value);
-      var lon = parseFloat(lonInput.value);
+      handleManual(latInput, lonInput, manualError, function (rLat, rLon) {
+        loadWeather({ type: "manual", lat: rLat, lon: rLon });
+      });
+    });
 
-      if (isNaN(lat) || isNaN(lon)) {
-        manualError.textContent = t("invalidNumeric");
-        return;
-      }
-      if (lat < -90 || lat > 90) {
-        manualError.textContent = t("latRange");
-        return;
-      }
-      if (lon < -180 || lon > 180) {
-        manualError.textContent = t("lonRange");
-        return;
-      }
+    var latInputB = document.getElementById("b-lat-input");
+    var lonInputB = document.getElementById("b-lon-input");
+    var manualErrorB = document.getElementById("b-manual-error");
 
-      clearNotice();
-      var rLat = round4(lat);
-      var rLon = round4(lon);
-      loadWeather({ type: "manual", lat: rLat, lon: rLon });
+    document.getElementById("b-manual-btn").addEventListener("click", function () {
+      handleManual(latInputB, lonInputB, manualErrorB, function (rLat, rLon) {
+        loadSecondary({ type: "manual", lat: rLat, lon: rLon });
+      });
     });
 
     // ---- Place-name search (Nominatim / OpenStreetMap) ----------------------
-    var searchInput = document.getElementById("search-input");
-    var searchBtn = document.getElementById("search-btn");
-    var searchError = document.getElementById("search-error");
-    var searchResults = document.getElementById("search-results");
-
-    function clearSearchResults() {
-      while (searchResults.firstChild) {
-        searchResults.removeChild(searchResults.firstChild);
+    // A search instance bundles one selector's input/button/error/results nodes
+    // and the load callback that a picked result funnels into. The same machinery
+    // drives the primary selector (-> loadWeather) and slot B (-> loadSecondary).
+    function makeSearch(inputEl, btnEl, errEl, resultsEl, onPick) {
+      function clearResults() {
+        while (resultsEl.firstChild) {
+          resultsEl.removeChild(resultsEl.firstChild);
+        }
       }
-    }
 
-    function doSearch() {
-      var query = searchInput.value.trim();
-      searchError.textContent = "";
-      searchError.classList.add("hidden");
-      clearSearchResults();
-      if (!query) { return; }
+      function doSearch() {
+        var query = inputEl.value.trim();
+        errEl.textContent = "";
+        errEl.classList.add("hidden");
+        clearResults();
+        if (!query) { return; }
 
-      searchBtn.disabled = true;
-      var lang = currentLang === "sr" ? "sr" : "en";
-      var params = new URLSearchParams({
-        q: query,
-        format: "json",
-        limit: "6",
-        "accept-language": lang
-      });
-      var url = "https://nominatim.openstreetmap.org/search?" + params.toString();
-
-      fetch(url)
-        .then(function (res) {
-          if (!res.ok) { throw new Error("HTTP " + res.status); }
-          return res.json();
-        })
-        .then(function (results) {
-          searchBtn.disabled = false;
-          if (!results || !results.length) {
-            searchError.textContent = t("searchNoResults");
-            searchError.classList.remove("hidden");
-            return;
-          }
-          results.forEach(function (result) {
-            var lat = parseFloat(result.lat);
-            var lon = parseFloat(result.lon);
-            if (!validLatLon(lat, lon)) { return; }
-            var btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "search-result-btn";
-            btn.textContent = result.display_name;
-            btn.addEventListener("click", function () {
-              clearNotice();
-              clearSearchResults();
-              searchError.textContent = "";
-              loadWeather({ type: "manual", lat: round4(lat), lon: round4(lon) });
-            });
-            searchResults.appendChild(btn);
-          });
-        })
-        .catch(function () {
-          searchBtn.disabled = false;
-          searchError.textContent = t("searchError");
-          searchError.classList.remove("hidden");
+        btnEl.disabled = true;
+        var lang = currentLang === "sr" ? "sr" : "en";
+        var params = new URLSearchParams({
+          q: query,
+          format: "json",
+          limit: "6",
+          "accept-language": lang
         });
+        var url = "https://nominatim.openstreetmap.org/search?" + params.toString();
+
+        fetch(url)
+          .then(function (res) {
+            if (!res.ok) { throw new Error("HTTP " + res.status); }
+            return res.json();
+          })
+          .then(function (results) {
+            btnEl.disabled = false;
+            if (!results || !results.length) {
+              errEl.textContent = t("searchNoResults");
+              errEl.classList.remove("hidden");
+              return;
+            }
+            results.forEach(function (result) {
+              var lat = parseFloat(result.lat);
+              var lon = parseFloat(result.lon);
+              if (!validLatLon(lat, lon)) { return; }
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "search-result-btn";
+              btn.textContent = result.display_name;
+              btn.addEventListener("click", function () {
+                clearNotice();
+                clearResults();
+                errEl.textContent = "";
+                onPick(round4(lat), round4(lon));
+              });
+              resultsEl.appendChild(btn);
+            });
+          })
+          .catch(function () {
+            btnEl.disabled = false;
+            errEl.textContent = t("searchError");
+            errEl.classList.remove("hidden");
+          });
+      }
+
+      btnEl.addEventListener("click", doSearch);
+      inputEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { doSearch(); }
+      });
     }
 
-    searchBtn.addEventListener("click", doSearch);
-    searchInput.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { doSearch(); }
-    });
+    makeSearch(
+      document.getElementById("search-input"),
+      document.getElementById("search-btn"),
+      document.getElementById("search-error"),
+      document.getElementById("search-results"),
+      function (rLat, rLon) {
+        loadWeather({ type: "manual", lat: rLat, lon: rLon });
+      }
+    );
+
+    makeSearch(
+      document.getElementById("b-search-input"),
+      document.getElementById("b-search-btn"),
+      document.getElementById("b-search-error"),
+      document.getElementById("b-search-results"),
+      function (rLat, rLon) {
+        loadSecondary({ type: "manual", lat: rLat, lon: rLon });
+      }
+    );
 
     // ---- Static-string application & language switching ---------------------
     var langButtons = document.querySelectorAll(".lang-btn");
@@ -1844,6 +2307,12 @@
       if (currentLocation) {
         loadWeather(currentLocation);
       }
+      // Slot B is independent of slot A's fetch outcome — reload it directly so
+      // it refreshes even when the slot-A fetch errors. Loaded exactly once per
+      // language switch (the slot-B call no longer rides slot A's success path).
+      if (compareMode && secondaryLocation) {
+        loadSecondary(secondaryLocation);
+      }
     }
 
     Array.prototype.forEach.call(langButtons, function (btn) {
@@ -1885,8 +2354,6 @@
       renameTarget = item;
       renameInput.value = item.name || currentLabel || "";
       renameOverlay.classList.remove("hidden");
-      renameInput.focus();
-      renameInput.select();
     }
 
     function closeRename() {
@@ -1951,6 +2418,10 @@
 
     function applySelectorCollapsed(collapsed) {
       elSelector.classList.toggle("hidden", collapsed);
+      // Slot-B selector is visible iff compare is on AND not collapsed.
+      if (elSelectorB) {
+        elSelectorB.classList.toggle("hidden", collapsed || !compareMode);
+      }
       if (selectorVisToggle) {
         selectorVisToggle.checked = !collapsed;
       }
@@ -1962,13 +2433,112 @@
       applySelectorCollapsed(collapsed);
     });
 
+    // ---- Compare mode (session-only; never persisted) -----------------------
+    var compareToggle = document.getElementById("compare-toggle");
+    var elSelectorB = document.getElementById("selector-section-b");
+    var elCompareCards = document.getElementById("compare-cards");
+    var elSlotCardB = document.getElementById("slot-card-b");
+
+    // Pick a sensible default slot-B city distinct from the primary city, so
+    // enabling compare with no slot-B pick yet shows two different places.
+    function defaultSecondary() {
+      var primaryIndex = (currentLocation && currentLocation.type === "city")
+        ? currentLocation.cityIndex : -1;
+      var index = (primaryIndex === 0 && CITIES.length > 1) ? 1 : 0;
+      return { type: "city", cityIndex: index };
+    }
+
+    // Show or hide all slot-B chrome (selector, card, stacked-chart nodes,
+    // per-chart labels) and switch the cards area to the two-column layout.
+    function applyCompareMode(on) {
+      compareMode = on;
+      // Slot-B selector is visible iff compare is on AND the selector isn't
+      // collapsed — never force it open when the user has collapsed the panel.
+      elSelectorB.classList.toggle("hidden", !on || readSelectorCollapsed());
+      elSlotCardB.classList.toggle("hidden", !on);
+      elCompareCards.classList.toggle("compare-on", on);
+
+      secondarySlot.precipBanner.classList.toggle("hidden", !on);
+      secondarySlot.chart.classList.toggle("hidden", !on);
+      primarySlot.chartLabel.classList.toggle("hidden", !on);
+      secondarySlot.chartLabel.classList.toggle("hidden", !on);
+
+      if (compareToggle) { compareToggle.checked = on; }
+
+      if (on) {
+        // Ensure slot A's chart label reflects its current badge (renderCurrent
+        // sets it, but the primary may have loaded before compare turned on).
+        // Only seed from a resolved badge — skip the transient loading string or
+        // an empty badge so a mid-load slot A doesn't stamp a stale label; the
+        // next slot-A render then populates it.
+        var badgeText = elBadge.textContent;
+        if (badgeText && badgeText !== t("loading")) {
+          primarySlot.chartLabel.textContent = badgeText;
+        }
+        if (!secondaryLocation) {
+          secondaryLocation = defaultSecondary();
+        }
+        refreshCityOptionsB();
+        loadSecondary(secondaryLocation);
+      }
+      // Recompute the header: turning compare off drops slot B from the verdict.
+      updateHeaderTitle();
+      saveCompareState();
+    }
+
+    compareToggle.addEventListener("change", function () {
+      applyCompareMode(compareToggle.checked);
+    });
+
     // ---- Default load -------------------------------------------------------
+    // Wrap a text/number input so a clear ("x") button overlays its right edge.
+    // Visibility is driven purely by CSS (:placeholder-shown); this only wires the
+    // click-to-clear. It does not focus or select the input.
+    function attachClearButton(input) {
+      var wrap = document.createElement("span");
+      wrap.className = "input-wrap";
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "input-clear";
+      btn.setAttribute("aria-label", "Clear");
+      btn.textContent = "×";
+      wrap.appendChild(btn);
+      btn.addEventListener("click", function () {
+        input.value = "";
+        var ev;
+        try {
+          ev = new Event("input", { bubbles: true });
+        } catch (e) {
+          ev = document.createEvent("Event");
+          ev.initEvent("input", true, false);
+        }
+        input.dispatchEvent(ev);
+      });
+    }
+
+    function attachClearButtons() {
+      var inputs = document.querySelectorAll('input[type="text"], input[type="number"]');
+      var i;
+      for (i = 0; i < inputs.length; i++) {
+        attachClearButton(inputs[i]);
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
       markActiveLang();
       applyStaticStrings();
+      attachClearButtons();
       renderSavedLocations();
       applySelectorCollapsed(readSelectorCollapsed());
       loadWeather(loadSavedLocation() || BELGRADE);
+      // Restore a persisted comparison: seed slot B and re-enter compare mode.
+      var compare = loadCompareState();
+      if (compare) {
+        secondaryLocation = compare.loc;
+        applyCompareMode(true);
+      }
     });
   </script>
 </body>

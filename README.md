@@ -29,7 +29,26 @@ displays a rain / no-rain banner, and renders a scrollable hourly bar chart.
    [Nominatim / OpenStreetMap](https://nominatim.openstreetmap.org/) geocoding
    API (up to 6 results) and displayed as clickable buttons.
 
-Belgrade loads automatically on first visit.
+The last-loaded location is saved to `localStorage` and restored on the next
+visit; Belgrade is the fallback (and loads automatically on first visit).
+
+### Saved locations
+
+GPS, manual, and searched coordinates can be saved with a **Save location**
+button (on the Manual and Search tabs). Saved entries appear as clickable chips
+in the GPS tab — each loads instantly, can be renamed (✎) or removed (✕). A
+custom name, when set, is shown verbatim and wins over reverse-geocoding;
+otherwise the chip label is reverse-geocoded (and cached). The save button is
+disabled when the current location is a preset city or already saved.
+
+### Compare two cities
+
+A **Compare** toggle in settings enables a side-by-side view of two locations.
+The second slot has its own full set of GPS / City / Manual / Search inputs and
+its own saved-location chips. The header rain indicator turns to "need
+umbrella" when *either* location expects rain. The compare state (on/off plus
+the second location) persists to `localStorage` and is restored on the next
+visit.
 
 ### Settings
 
@@ -42,6 +61,8 @@ containing:
   all dynamic text reloads in the new language.
 - **Show location selector** — a toggle to hide or reveal the entire location
   selector panel. The preference is persisted in `localStorage`.
+- **Compare** — a toggle that enables the two-location comparison view (see
+  below). The state is persisted in `localStorage`.
 
 ### Home screen install (iOS / Android)
 

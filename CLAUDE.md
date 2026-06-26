@@ -80,7 +80,10 @@ Escape. It also hosts the language switcher (SR / EN buttons).
 **Saved locations**: a "Save location" button on the **Manual** tab stores the
 current custom coordinate (GPS / manual only — cities live in the dropdown) to a
 `localStorage` array (`SAVED_KEY`, `[{lat, lon, name?}]`), rendered as clickable
-chips in the **GPS** tab's `#saved-list` by `renderSavedLocations`. A chip's
+chips in the **GPS** tab's `#saved-list` by `renderSavedLocations`. The same
+list is mirrored into the slot-B GPS tab's `#b-saved-list` (compare mode) by the
+shared `renderSavedInto(listEl, onLoad)` helper; slot-A chips load via
+`loadWeather` and slot-B chips via `loadSecondary`. A chip's
 `name` (set via the ✎ rename modal `#rename-overlay`; empty clears it) is shown verbatim,
 otherwise the label reverse-geocodes (cached → instant). Each chip loads as a
 `manual` descriptor on click and carries ✎ to rename and ✕ to remove it. When a
@@ -94,6 +97,38 @@ last-pick restore and the saved list is checked by the shared `validLatLon`.
 The last-loaded location persists to `localStorage` (`LOC_KEY`) and is restored
 on `DOMContentLoaded` (validated by `loadSavedLocation`); Belgrade is the
 fallback.
+
+**Compare two cities**: a toggle inside the **Settings modal**
+(`#compare-toggle`, driving `applyCompareMode`) enables a side-by-side
+comparison. Compare state **persists** to `localStorage` (`COMPARE_KEY`, a JSON
+`{ on, loc }` where `loc` is the slot-B descriptor): `compareMode` (bool) and
+`secondaryLocation` are saved by `saveCompareState` whenever the toggle flips
+(`applyCompareMode`) or slot B reloads (`loadSecondary`). On `DOMContentLoaded`,
+after the primary loads, `loadCompareState` validates the stored state (via the
+shared `parseDescriptor`) and, if compare was on with a valid slot-B descriptor,
+seeds `secondaryLocation` and re-enters compare mode. The two
+render targets are abstracted as slots: `primarySlot` (slot A, the default
+view) and `secondarySlot` (slot B), each bundling its badge / card / precip
+banner / chart / per-chart-label DOM nodes plus an `isRain` verdict.
+`renderCurrent(ts, name, slot)` and `renderPrecip(timeseries, slot)` are
+slot-aware so the same render code fills either slot. Slot B is fed by `loadSecondary(loc)` — a parallel of
+`loadWeather` that fetches and renders into `secondarySlot` only; it does **not**
+touch the city dropdown / save state, or drive the loading/error state-swap
+(slot A owns the whole-view state). Stale
+slot-B fetches are guarded on `secondaryLocation` identity, and on error the
+slot-B badge shows the message so slot A stays intact. The second selector
+(`#selector-section-b`, shown only in compare mode) reuses all four input
+methods (GPS / City / Manual / Search) with independent tab wiring
+(`refreshCityOptionsB`, etc.) and funnels into `loadSecondary` instead of
+`loadWeather`. Enabling compare with no slot-B pick yet seeds a sensible
+`defaultSecondary` (a different city than slot A when possible). The page
+`<title>` and `#header-title` rain indicator are recomputed by
+`updateHeaderTitle` from the slots' `isRain` verdicts: the umbrella ("need
+umbrella") message wins when the primary will rain, or — in compare mode — when
+**either** location will rain; toggling compare off drops slot B from the
+verdict. On a language switch, `setLanguage` reloads slot B directly
+(independent of slot A's fetch outcome) so it refreshes even when slot A errors,
+loaded exactly once per switch.
 
 ## Conventions that matter when editing
 

@@ -2,9 +2,9 @@
 
 A zero-dependency, single-page weather app for anywhere in the world. It shows
 current conditions and a 24-hour precipitation outlook so you know whether to
-grab an umbrella, and it is bilingual (Serbian / English). Everything lives in
-one self-contained `index.html` (inline CSS and vanilla JavaScript, no build
-step).
+grab an umbrella, and it is bilingual (Serbian / English). `index.html` holds
+the markup; CSS and vanilla JavaScript live in `assets/css/` and `assets/js/`
+(no build step).
 
 **Live:** https://zlatanstajic.github.io/need-umbrella/
 
@@ -14,7 +14,9 @@ Current conditions (large temperature, weather emoji, description) plus detail
 tiles for relative humidity, wind speed with 16-point compass direction, air
 pressure, and cloud cover. After weather loads, the page title and header update
 to reflect whether rain is expected. A 24-hour section sums hourly precipitation,
-displays a rain / no-rain banner, and renders a scrollable hourly bar chart.
+displays a rain / no-rain banner, and renders a scrollable hourly bar chart. Next
+to the section heading, a bracketed summary shows when rain starts and stops plus
+the total amount for that window — no scrolling needed for the overview.
 
 ### Four ways to pick a location
 
@@ -69,7 +71,7 @@ containing:
 The app can be saved to the home screen for an app-like experience:
 
 - **iOS (Safari):** Share → Add to Home Screen. Launches full-screen without
-  browser chrome, using the `apple-touch-icon.png` (180×180) as the icon.
+  browser chrome, using `assets/img/apple-touch-icon.png` (180×180) as the icon.
 - **Android (Chrome):** Menu → Add to Home Screen, or accept the install
   prompt. Uses the `theme-color` meta tag to tint the system UI.
 

@@ -51,6 +51,14 @@
           <span class="toggle-track" aria-hidden="true"></span>
         </label>
       </div>
+      <div class="setting-row">
+        <span class="setting-label" data-i18n="dataLabel">Data</span>
+        <div class="lang-bar">
+          <button type="button" class="btn btn-ghost" id="data-export-btn" data-i18n="exportBtn">Export</button>
+          <button type="button" class="btn btn-ghost" id="data-import-btn" data-i18n="importBtn">Import</button>
+          <input type="file" id="data-import-input" accept="application/json,.json" class="hidden">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -83,7 +91,6 @@
       <div class="tabs">
         <button type="button" class="tab-btn active" data-tab="gps" data-i18n="tabGps">📍 GPS</button>
         <button type="button" class="tab-btn" data-tab="city" data-i18n="tabCity">🏙️ City</button>
-        <button type="button" class="tab-btn" data-tab="manual" data-i18n="tabManual">🧭 Manual</button>
         <button type="button" class="tab-btn" data-tab="search" data-i18n="tabSearch">🔍 Search</button>
       </div>
 
@@ -102,22 +109,6 @@
         <div class="row">
           <select id="city-select"></select>
         </div>
-      </div>
-
-      <div class="panel hidden" id="panel-manual">
-        <div class="row">
-          <label for="lat-input" data-i18n="latLabel">Latitude</label>
-          <input type="number" id="lat-input" step="any" placeholder="-90 to 90" data-i18n-placeholder="latPlaceholder">
-        </div>
-        <div class="row">
-          <label for="lon-input" data-i18n="lonLabel">Longitude</label>
-          <input type="number" id="lon-input" step="any" placeholder="-180 to 180" data-i18n-placeholder="lonPlaceholder">
-        </div>
-        <div class="row">
-          <button type="button" class="btn" id="manual-btn" data-i18n="manualBtn">Get weather</button>
-          <button type="button" class="btn btn-ghost" id="save-btn" data-i18n="saveLocation">Save location</button>
-        </div>
-        <div class="inline-error" id="manual-error"></div>
       </div>
 
       <div class="panel hidden" id="panel-search">
@@ -140,7 +131,6 @@
       <div class="tabs">
         <button type="button" class="tab-btn active" data-tab="gps" data-i18n="tabGps">📍 GPS</button>
         <button type="button" class="tab-btn" data-tab="city" data-i18n="tabCity">🏙️ City</button>
-        <button type="button" class="tab-btn" data-tab="manual" data-i18n="tabManual">🧭 Manual</button>
         <button type="button" class="tab-btn" data-tab="search" data-i18n="tabSearch">🔍 Search</button>
       </div>
 
@@ -157,21 +147,6 @@
         <div class="row">
           <select id="b-city-select"></select>
         </div>
-      </div>
-
-      <div class="panel hidden" id="b-panel-manual">
-        <div class="row">
-          <label for="b-lat-input" data-i18n="latLabel">Latitude</label>
-          <input type="number" id="b-lat-input" step="any" placeholder="-90 to 90" data-i18n-placeholder="latPlaceholder">
-        </div>
-        <div class="row">
-          <label for="b-lon-input" data-i18n="lonLabel">Longitude</label>
-          <input type="number" id="b-lon-input" step="any" placeholder="-180 to 180" data-i18n-placeholder="lonPlaceholder">
-        </div>
-        <div class="row">
-          <button type="button" class="btn" id="b-manual-btn" data-i18n="manualBtn">Get weather</button>
-        </div>
-        <div class="inline-error" id="b-manual-error"></div>
       </div>
 
       <div class="panel hidden" id="b-panel-search">

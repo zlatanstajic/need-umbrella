@@ -38,8 +38,18 @@ source: MET Norway Locationforecast 2.0 **compact** endpoint
 (`api.met.no/.../compact?lat=&lon=`). No API key. GPS and manual coordinates
 are reverse-geocoded to a place name via BigDataCloud's key-less, browser-CORS
 `reverse-geocode-client` endpoint (`reverseGeocode`); failure keeps the
-coordinate badge. Resolved names are cached in `localStorage` (`GEO_KEY`, keyed
+coordinate badge. Resolved names are cached under the `geo` sub-key (keyed
 by `lang|lat|lon`) so identical coords never re-fetch.
+
+**Persistence**: all persisted state lives in a single `localStorage` key,
+`nu:data`, holding one JSON object whose sub-keys are `lang`, `loc`, `geo`,
+`saved`, `selectorCollapsed`, `compare`, and `forecast` (all JSON;
+`selectorCollapsed` and `forecast` are real booleans, not `"1"`/`"0"` strings).
+Every read/write goes through the central accessor
+`store.get(subKey, fallback)` / `store.set(subKey, value)`, which is a
+read-modify-write of the single blob backed by `loadStore()` / `saveStore()`
+(both try/catch-wrapped; `loadStore` returns `{}` on absent/parse-fail). A
+fresh user gets `nu:data` created only on the first real `store.set`.
 
 Core flow: `loadWeather(loc)` is the one entry point — `loc` is a location
 descriptor (`{ type: "city", cityIndex }`, `{ type: "gps", lat, lon }`, or
@@ -57,32 +67,35 @@ UI is state-swapping, not a framework: `showOnly(el)` toggles `.hidden` across
 the loading / error / weather sections. `showNotice`/`clearNotice` drive the
 amber fallback banner.
 
-Four location inputs all funnel into `loadWeather`:
+Three location inputs all funnel into `loadWeather`:
 - **GPS** — `navigator.geolocation`, triggered from a chip (not a plain button).
   Any denial/error/unavailable falls back to the `BELGRADE` descriptor
-  (`CITIES[0]`) with a notice.
+  (`CITIES[0]`) with a notice. The GPS tab also hosts the "Save location"
+  button (`#save-btn`).
 - **City** — dropdown built from the `CITIES` array (index is the option value);
   labels are rebuilt per language by `refreshCityOptions`.
-- **Manual** — lat/lon validated (`-90..90`, `-180..180`, numeric) before fetch.
 - **Search** — free-text place-name lookup via the Nominatim/OpenStreetMap
   geocoding API (`nominatim.openstreetmap.org/search`), up to 6 results shown
   as clickable buttons; Enter key triggers the search. Also has a
-  `#save-search-btn` ("Save location") that behaves identically to the Manual
+  `#save-search-btn` ("Save location") that behaves identically to the GPS
   tab's save button.
+
+(There is no manual lat/lon entry tab; the `type: "manual"` location descriptor
+is still used internally for saved-chip and search-result picks — see below.)
 
 The whole selector section (`#selector-section`) can be hidden or shown via a
 toggle inside the **Settings modal** (`#selector-vis-toggle`). The visibility
-state persists in `localStorage` (`SELECTOR_COLLAPSE_KEY`, `"1"` = hidden,
-`"0"` or absent = visible) and defaults to visible on first visit;
+state persists under the `selectorCollapsed` sub-key (boolean `true` = hidden,
+`false` or absent = visible) and defaults to visible on first visit;
 `applySelectorCollapsed(collapsed)` syncs the DOM and the toggle checkbox.
 
 The **Settings modal** is opened by a fixed gear button (`#settings-open`,
 positioned top-right) and closed by `#settings-close`, the backdrop click, or
 Escape. It also hosts the language switcher (SR / EN buttons).
 
-**Saved locations**: a "Save location" button on the **Manual** tab stores the
-current custom coordinate (GPS / manual only — cities live in the dropdown) to a
-`localStorage` array (`SAVED_KEY`, `[{lat, lon, name?}]`), rendered as clickable
+**Saved locations**: a "Save location" button on the **GPS** tab stores the
+current custom coordinate (any non-city location — cities live in the dropdown) to a
+`localStorage` array (the `saved` sub-key, `[{lat, lon, name?}]`), rendered as clickable
 chips in the **GPS** tab's `#saved-list` by `renderSavedLocations`. The same
 list is mirrored into the slot-B GPS tab's `#b-saved-list` (compare mode) by the
 shared `renderSavedInto(listEl, onLoad)` helper; slot-A chips load via
@@ -97,13 +110,13 @@ skipped.
 custom coordinate or is already saved. Coordinate validity for both the
 last-pick restore and the saved list is checked by the shared `validLatLon`.
 
-The last-loaded location persists to `localStorage` (`LOC_KEY`) and is restored
+The last-loaded location persists under the `loc` sub-key and is restored
 on `DOMContentLoaded` (validated by `loadSavedLocation`); Belgrade is the
 fallback.
 
 **Compare two cities**: a toggle inside the **Settings modal**
 (`#compare-toggle`, driving `applyCompareMode`) enables a side-by-side
-comparison. Compare state **persists** to `localStorage` (`COMPARE_KEY`, a JSON
+comparison. Compare state **persists** under the `compare` sub-key (a JSON
 `{ on, loc }` where `loc` is the slot-B descriptor): `compareMode` (bool) and
 `secondaryLocation` are saved by `saveCompareState` whenever the toggle flips
 (`applyCompareMode`) or slot B reloads (`loadSecondary`). On `DOMContentLoaded`,
@@ -120,8 +133,8 @@ touch the city dropdown / save state, or drive the loading/error state-swap
 (slot A owns the whole-view state). Stale
 slot-B fetches are guarded on `secondaryLocation` identity, and on error the
 slot-B badge shows the message so slot A stays intact. The second selector
-(`#selector-section-b`, shown only in compare mode) reuses all four input
-methods (GPS / City / Manual / Search) with independent tab wiring
+(`#selector-section-b`, shown only in compare mode) reuses all three input
+methods (GPS / City / Search) with independent tab wiring
 (`refreshCityOptionsB`, etc.) and funnels into `loadSecondary` instead of
 `loadWeather`. Enabling compare with no slot-B pick yet seeds a sensible
 `defaultSecondary` (a different city than slot A when possible). The page
@@ -135,8 +148,8 @@ loaded exactly once per switch.
 
 **7-day forecast**: a toggle inside the **Settings modal** (`#forecast-toggle`,
 driving `applyForecastMode`) shows/hides `#forecast-section` alongside the
-existing 24h chart — additive, not a replacement. State persists to
-`localStorage` (`FORECAST_KEY`, `"1"` = on) and is restored on
+existing 24h chart — additive, not a replacement. State persists under the
+`forecast` sub-key (boolean `true` = on) and is restored on
 `DOMContentLoaded`. Primary slot only for v1; slot B / compare mode is
 untouched. Each successful `loadWeather` stashes the raw `timeseries` on
 `primarySlot.timeseries` so toggling the forecast on doesn't require a
@@ -158,11 +171,38 @@ re-renders the forecast directly from `primarySlot.timeseries` (guarded on
 `forecastMode` and the stash being present) so day labels re-localize even
 if the language-switch refetch fails.
 
+**Export / import data**: a "Data" (`dataLabel` / "Podaci") `.setting-row` at
+the bottom of the **Settings modal** carries an Export button
+(`#data-export-btn`) and an Import button (`#data-import-btn`) plus a hidden
+`<input type="file" id="data-import-input" accept="application/json,.json">`,
+making the single `nu:data` blob portable/recoverable. **Export** (`exportData`)
+reads the blob via `loadStore()`, pretty-prints it (`JSON.stringify(blob, null,
+2)`), and downloads it as `need-umbrella-data.json` via a `Blob`
+(`application/json`) + `URL.createObjectURL` + a transient anchor
+(append/click/remove, then `revokeObjectURL`); the whole body is try/catch-
+wrapped so missing storage/download APIs degrade quietly. **Import**: the
+button `.click()`s the hidden file input, whose `change` handler reads
+`files[0]` via `FileReader.readAsText`, `JSON.parse`s it (try/catch), and runs
+`validateImport`. `validateImport` reuses the read-side rules
+(`parseDescriptor` / `validLatLon`): it accepts only the known sub-keys
+(`lang` kept if `"sr"`/`"en"`; `loc` via `parseDescriptor`; `compare` →
+`{on: !!on, loc}` with `loc` via `parseDescriptor`; `saved` via `Array.isArray`
++ the same `validLatLon` filter as `readSavedLocations`;
+`selectorCollapsed`/`forecast` coerced to real booleans; `geo` kept if a plain
+object), silently drops unknown keys and individually-invalid entries, and
+returns `null` (→ native `alert(importInvalid)`, `nu:data` untouched) only when
+the root isn't a plain object or contains **zero** known sub-keys. On a valid
+payload it `saveStore`s the validated object and `location.reload()`s so all
+state re-renders — no confirmation prompt. The file input's `value` is always
+reset (`= ""`) after handling so re-picking the same file re-fires `change`.
+`importOk` is defined in both bundles but currently unused (reserved for a
+future non-reload path, since success reloads immediately).
+
 ## Conventions that matter when editing
 
 - **i18n**: all user-facing strings live in the `STRINGS` dictionary
-  (`STRINGS.sr` Latin / `STRINGS.en`). `currentLang` (default `sr`, persisted in
-  `localStorage` under `LANG_KEY`) selects the active bundle; `t(key)` reads
+  (`STRINGS.sr` Latin / `STRINGS.en`). `currentLang` (default `sr`, persisted
+  under the `lang` sub-key of `nu:data`) selects the active bundle; `t(key)` reads
   plain strings and `tf(key, ...args)` calls function-valued entries (string
   concatenation, no template literals). Static DOM nodes carry `data-i18n` /
   `data-i18n-placeholder` hooks applied by `applyStaticStrings()`. `setLanguage`

@@ -18,12 +18,16 @@
         languageLabel: "Jezik",
         tabGps: "📍 GPS",
         tabCity: "🏙️ Grad",
-        tabManual: "🧭 Ručno",
         selectorSection: "Izbor lokacije",
         selectorVisLabel: "Prikaži izbor lokacije",
         compareLabel: "Uporedi dve lokacije",
         compareSecondHeading: "Druga lokacija",
         forecastLabel: "Prognoza za 7 dana",
+        dataLabel: "Podaci",
+        exportBtn: "Izvezi",
+        importBtn: "Uvezi",
+        importInvalid: "Neispravna datoteka. Podaci nisu promenjeni.",
+        importOk: "Podaci su uvezeni.",
         gpsBtn: "📍 Koristi moju lokaciju",
         saveLocation: "Sačuvaj lokaciju",
         removeLocation: "Ukloni lokaciju",
@@ -33,11 +37,6 @@
         renameSave: "Sačuvaj",
         renameCancel: "Otkaži",
         locationSaved: "Lokacija sačuvana.",
-        latLabel: "Geografska širina",
-        lonLabel: "Geografska dužina",
-        latPlaceholder: "-90 do 90",
-        lonPlaceholder: "-180 do 180",
-        manualBtn: "Prikaži vreme",
         tabSearch: "🔍 Pretraga",
         searchPlaceholder: "Unesite naziv mesta",
         searchBtn: "Traži",
@@ -59,9 +58,6 @@
         errorPrefix: "Učitavanje prognoze nije uspelo: ",
         httpError: function (status) { return "Vremenski servis je vratio HTTP " + status; },
         noData: "Nema dostupne prognoze za ovu lokaciju.",
-        invalidNumeric: "Unesite ispravnu numeričku širinu i dužinu.",
-        latRange: "Geografska širina mora biti između -90 i 90.",
-        lonRange: "Geografska dužina mora biti između -180 i 180.",
         geoUnavailable: "Geolokacija nije dostupna — prikazujem Beograd.",
         geoDenied: "Pristup lokaciji odbijen ili nedostupan — prikazujem Beograd.",
         rainSummary: function (start, stop, total) { return "(" + start + "–" + stop + ", " + total + ")"; },
@@ -134,12 +130,16 @@
         languageLabel: "Language",
         tabGps: "📍 GPS",
         tabCity: "🏙️ City",
-        tabManual: "🧭 Manual",
         selectorSection: "Choose location",
         selectorVisLabel: "Show location selector",
         compareLabel: "Compare two locations",
         compareSecondHeading: "Second location",
         forecastLabel: "7-day forecast",
+        dataLabel: "Data",
+        exportBtn: "Export",
+        importBtn: "Import",
+        importInvalid: "Invalid file. Your data was not changed.",
+        importOk: "Data imported.",
         gpsBtn: "📍 Use my location",
         saveLocation: "Save location",
         removeLocation: "Remove location",
@@ -149,11 +149,6 @@
         renameSave: "Save",
         renameCancel: "Cancel",
         locationSaved: "Location saved.",
-        latLabel: "Latitude",
-        lonLabel: "Longitude",
-        latPlaceholder: "-90 to 90",
-        lonPlaceholder: "-180 to 180",
-        manualBtn: "Get weather",
         tabSearch: "🔍 Search",
         searchPlaceholder: "Enter a place name",
         searchBtn: "Search",
@@ -175,9 +170,6 @@
         errorPrefix: "Could not load weather: ",
         httpError: function (status) { return "Weather service returned HTTP " + status; },
         noData: "No forecast data available for this location.",
-        invalidNumeric: "Please enter valid numeric latitude and longitude.",
-        latRange: "Latitude must be between -90 and 90.",
-        lonRange: "Longitude must be between -180 and 180.",
         geoUnavailable: "Geolocation unavailable — showing Belgrade instead.",
         geoDenied: "Location access denied or unavailable — showing Belgrade instead.",
         rainSummary: function (start, stop, total) { return "(" + start + "–" + stop + ", " + total + ")"; },
@@ -240,17 +232,51 @@
       }
     };
 
-    var LANG_KEY = "needUmbrellaLang";
-    var LOC_KEY = "needUmbrellaLoc";
-    var GEO_KEY = "needUmbrellaGeo";
-    var SAVED_KEY = "needUmbrellaSaved";
-    var SELECTOR_COLLAPSE_KEY = "needUmbrellaSelectorCollapsed";
-    var COMPARE_KEY = "needUmbrellaCompare";
-    var FORECAST_KEY = "needUmbrellaForecast";
+    // ---- Consolidated storage ----------------------------------------------
+    // All persisted state lives in one localStorage key as a single JSON blob
+    // whose sub-keys are lang / loc / geo / saved / selectorCollapsed /
+    // compare / forecast, read and written through the `store` accessor.
+    var STORE_KEY = "nu:data";
+
+    // Read the whole blob; returns {} on absent / parse failure / any throw.
+    function loadStore() {
+      try {
+        var raw = localStorage.getItem(STORE_KEY);
+        if (!raw) { return {}; }
+        var obj = JSON.parse(raw);
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    // Write the whole blob; no-op on any throw.
+    function saveStore(obj) {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(obj));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    // Read-modify-write accessors for individual sub-keys of the blob.
+    var store = {
+      get: function (subKey, fallback) {
+        var obj = loadStore();
+        if (Object.prototype.hasOwnProperty.call(obj, subKey)) {
+          return obj[subKey];
+        }
+        return fallback;
+      },
+      set: function (subKey, value) {
+        var obj = loadStore();
+        obj[subKey] = value;
+        saveStore(obj);
+      }
+    };
 
     var currentLang = (function () {
-      var saved = null;
-      try { saved = localStorage.getItem(LANG_KEY); } catch (e) { saved = null; }
+      var saved = store.get("lang", "sr");
       return (saved === "sr" || saved === "en") ? saved : "sr";
     })();
 
@@ -842,17 +868,12 @@
     // Persistent cache of resolved place names, keyed by "lang|lat|lon" so each
     // language's labels are stored separately. Read/written as one JSON object.
     function readGeoCache() {
-      var raw = null;
-      try { raw = localStorage.getItem(GEO_KEY); } catch (e) { return {}; }
-      if (!raw) { return {}; }
-      try {
-        var obj = JSON.parse(raw);
-        return (obj && typeof obj === "object") ? obj : {};
-      } catch (e) { return {}; }
+      var obj = store.get("geo", {});
+      return (obj && typeof obj === "object") ? obj : {};
     }
 
     function writeGeoCache(cache) {
-      try { localStorage.setItem(GEO_KEY, JSON.stringify(cache)); } catch (e) { /* ignore */ }
+      store.set("geo", cache);
     }
 
     // Reverse-geocode coords to a localized place name via BigDataCloud's
@@ -878,9 +899,9 @@
           if (place) { parts.push(place); }
           if (d.countryName) { parts.push(d.countryName); }
           var name = parts.join(", ");
-          var store = readGeoCache();
-          store[key] = name;
-          writeGeoCache(store);
+          var latest = readGeoCache();
+          latest[key] = name;
+          writeGeoCache(latest);
           return name;
         });
     }
@@ -894,7 +915,7 @@
 
     // Persist a location descriptor so the last pick reloads next visit.
     function saveLocation(loc) {
-      try { localStorage.setItem(LOC_KEY, JSON.stringify(loc)); } catch (e) { /* ignore */ }
+      store.set("loc", loc);
     }
 
     // Validate a parsed location descriptor; returns a clean copy or null.
@@ -917,32 +938,21 @@
 
     // Read and validate a stored descriptor; null if absent/malformed.
     function loadSavedLocation() {
-      var raw = null;
-      try { raw = localStorage.getItem(LOC_KEY); } catch (e) { return null; }
-      if (!raw) { return null; }
-      var loc;
-      try { loc = JSON.parse(raw); } catch (e) { return null; }
-      return parseDescriptor(loc);
+      return parseDescriptor(store.get("loc", null));
     }
 
     // Persist the compare-mode state (on/off + slot-B descriptor) so a
     // comparison is restored next visit.
     function saveCompareState() {
-      try {
-        localStorage.setItem(COMPARE_KEY, JSON.stringify({
-          on: compareMode,
-          loc: secondaryLocation
-        }));
-      } catch (e) { /* ignore */ }
+      store.set("compare", {
+        on: compareMode,
+        loc: secondaryLocation
+      });
     }
 
     // Read and validate the stored compare state; null if absent/malformed/off.
     function loadCompareState() {
-      var raw = null;
-      try { raw = localStorage.getItem(COMPARE_KEY); } catch (e) { return null; }
-      if (!raw) { return null; }
-      var state;
-      try { state = JSON.parse(raw); } catch (e) { return null; }
+      var state = store.get("compare", null);
       if (!state || typeof state !== "object" || !state.on) { return null; }
       var loc = parseDescriptor(state.loc);
       if (!loc) { return null; }
@@ -954,20 +964,15 @@
     // { lat, lon, name? } — `name` is an optional user title that overrides the
     // reverse-geocoded label. Rendered as clickable chips on the GPS tab.
     function readSavedLocations() {
-      var raw = null;
-      try { raw = localStorage.getItem(SAVED_KEY); } catch (e) { return []; }
-      if (!raw) { return []; }
-      try {
-        var list = JSON.parse(raw);
-        if (!Array.isArray(list)) { return []; }
-        return list.filter(function (s) {
-          return s && validLatLon(s.lat, s.lon);
-        });
-      } catch (e) { return []; }
+      var list = store.get("saved", []);
+      if (!Array.isArray(list)) { return []; }
+      return list.filter(function (s) {
+        return s && validLatLon(s.lat, s.lon);
+      });
     }
 
     function writeSavedLocations(list) {
-      try { localStorage.setItem(SAVED_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
+      store.set("saved", list);
     }
 
     // Custom title saved for these exact coords, or null. Coords are compared
@@ -1136,14 +1141,12 @@
     wireTabs(document.getElementById("selector-body"), {
       gps: document.getElementById("panel-gps"),
       city: document.getElementById("panel-city"),
-      manual: document.getElementById("panel-manual"),
       search: document.getElementById("panel-search")
     });
 
     wireTabs(document.getElementById("selector-body-b"), {
       gps: document.getElementById("b-panel-gps"),
       city: document.getElementById("b-panel-city"),
-      manual: document.getElementById("b-panel-manual"),
       search: document.getElementById("b-panel-search")
     });
 
@@ -1199,7 +1202,8 @@
     var saveSearchBtn = document.getElementById("save-search-btn");
 
     // Enable "Save location" only when the current location is a custom
-    // coordinate (GPS / manual); cities already live in the dropdown.
+    // coordinate (GPS or a search/saved pick); cities already live in the
+    // dropdown.
     function refreshSaveState() {
       var custom = currentLocation && currentLocation.type !== "city";
       var lat = custom ? round4(currentLocation.lat) : null;
@@ -1286,7 +1290,7 @@
       });
     }
 
-    saveBtn.addEventListener("click", function () {
+    if (saveBtn) { saveBtn.addEventListener("click", function () {
       if (!currentLocation || currentLocation.type === "city") { return; }
       var lat = round4(currentLocation.lat);
       var lon = round4(currentLocation.lon);
@@ -1301,7 +1305,7 @@
       }
       refreshSaveState();
       showNotice(t("locationSaved"));
-    });
+    }); }
 
     if (saveSearchBtn) {
       saveSearchBtn.addEventListener("click", function () {
@@ -1405,49 +1409,6 @@
       if (CITIES[index]) {
         loadSecondary({ type: "city", cityIndex: index });
       }
-    });
-
-    // Manual entry. Shared validation feeds either slot via `onValid`.
-    function handleManual(latEl, lonEl, errEl, onValid) {
-      errEl.textContent = "";
-      var lat = parseFloat(latEl.value);
-      var lon = parseFloat(lonEl.value);
-
-      if (isNaN(lat) || isNaN(lon)) {
-        errEl.textContent = t("invalidNumeric");
-        return;
-      }
-      if (lat < -90 || lat > 90) {
-        errEl.textContent = t("latRange");
-        return;
-      }
-      if (lon < -180 || lon > 180) {
-        errEl.textContent = t("lonRange");
-        return;
-      }
-
-      clearNotice();
-      onValid(round4(lat), round4(lon));
-    }
-
-    var latInput = document.getElementById("lat-input");
-    var lonInput = document.getElementById("lon-input");
-    var manualError = document.getElementById("manual-error");
-
-    document.getElementById("manual-btn").addEventListener("click", function () {
-      handleManual(latInput, lonInput, manualError, function (rLat, rLon) {
-        loadWeather({ type: "manual", lat: rLat, lon: rLon });
-      });
-    });
-
-    var latInputB = document.getElementById("b-lat-input");
-    var lonInputB = document.getElementById("b-lon-input");
-    var manualErrorB = document.getElementById("b-manual-error");
-
-    document.getElementById("b-manual-btn").addEventListener("click", function () {
-      handleManual(latInputB, lonInputB, manualErrorB, function (rLat, rLon) {
-        loadSecondary({ type: "manual", lat: rLat, lon: rLon });
-      });
     });
 
     // ---- Place-name search (Nominatim / OpenStreetMap) ----------------------
@@ -1583,7 +1544,7 @@
     function setLanguage(lang) {
       if (lang !== "sr" && lang !== "en") { return; }
       currentLang = lang;
-      try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
+      store.set("lang", lang);
       markActiveLang();
       applyStaticStrings();
       // Re-render saved chips so their place names reload in the new language.
@@ -1632,6 +1593,139 @@
     // Click on the backdrop (outside the dialog) closes the modal.
     settingsOverlay.addEventListener("click", function (e) {
       if (e.target === settingsOverlay) { closeSettings(); }
+    });
+
+    // ---- Export / import persisted data -------------------------------------
+    var dataExportBtn = document.getElementById("data-export-btn");
+
+    // Download the whole nu:data blob as a pretty-printed JSON file. Degrades
+    // quietly if storage or the download APIs are unavailable.
+    function exportData() {
+      try {
+        var blob = loadStore();
+        var json = JSON.stringify(blob, null, 2);
+        var file = new Blob([json], { type: "application/json" });
+        var url = URL.createObjectURL(file);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "need-umbrella-data.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    dataExportBtn.addEventListener("click", exportData);
+
+    var dataImportBtn = document.getElementById("data-import-btn");
+    var dataImportInput = document.getElementById("data-import-input");
+
+    // Validate a parsed import payload against the known nu:data shape, reusing
+    // the app's existing read-side rules. Returns a clean blob, or null when the
+    // input clearly isn't a usable nu:data object (not an object, or no known
+    // sub-key survives validation). Unknown keys and individually-invalid
+    // optional entries are dropped silently, matching the lenient read side.
+    function validateImport(obj) {
+      if (!obj || typeof obj !== "object" ||
+          Object.prototype.toString.call(obj) !== "[object Object]") {
+        return null;
+      }
+      var out = {};
+      var sawKnownKey = false;
+
+      if (Object.prototype.hasOwnProperty.call(obj, "lang")) {
+        sawKnownKey = true;
+        if (obj.lang === "sr" || obj.lang === "en") { out.lang = obj.lang; }
+      }
+      if (Object.prototype.hasOwnProperty.call(obj, "loc")) {
+        sawKnownKey = true;
+        var loc = parseDescriptor(obj.loc);
+        if (loc) { out.loc = loc; }
+      }
+      if (Object.prototype.hasOwnProperty.call(obj, "geo")) {
+        sawKnownKey = true;
+        if (obj.geo && typeof obj.geo === "object" &&
+            Object.prototype.toString.call(obj.geo) === "[object Object]") {
+          out.geo = obj.geo;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(obj, "saved")) {
+        sawKnownKey = true;
+        if (Array.isArray(obj.saved)) {
+          out.saved = obj.saved.filter(function (s) {
+            return s && validLatLon(s.lat, s.lon);
+          });
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(obj, "selectorCollapsed")) {
+        sawKnownKey = true;
+        out.selectorCollapsed = !!obj.selectorCollapsed;
+      }
+      if (Object.prototype.hasOwnProperty.call(obj, "forecast")) {
+        sawKnownKey = true;
+        out.forecast = !!obj.forecast;
+      }
+      if (Object.prototype.hasOwnProperty.call(obj, "compare")) {
+        sawKnownKey = true;
+        var cmp = obj.compare;
+        if (cmp && typeof cmp === "object") {
+          var cmpLoc = parseDescriptor(cmp.loc);
+          if (cmpLoc) { out.compare = { on: !!cmp.on, loc: cmpLoc }; }
+        }
+      }
+
+      // Reject payloads that carry no known sub-key at all — clearly not a
+      // nu:data blob. (A known key that fails validation is dropped, but its
+      // presence still counts as a recognizable shape.)
+      if (!sawKnownKey) { return null; }
+      return out;
+    }
+
+    // Read a user-picked JSON file, validate it, confirm, then replace nu:data
+    // and reload so all state re-renders. Invalid input leaves storage untouched.
+    function handleImportFile(file) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var parsed = null;
+        try {
+          parsed = JSON.parse(reader.result);
+        } catch (e) {
+          parsed = null;
+        }
+        var validated = validateImport(parsed);
+        if (!validated) {
+          window.alert(t("importInvalid"));
+          return;
+        }
+        try {
+          saveStore(validated);
+          window.location.reload();
+        } catch (e) {
+          /* ignore */
+        }
+      };
+      reader.onerror = function () {
+        window.alert(t("importInvalid"));
+      };
+      try {
+        reader.readAsText(file);
+      } catch (e) {
+        window.alert(t("importInvalid"));
+      }
+    }
+
+    dataImportBtn.addEventListener("click", function () {
+      dataImportInput.click();
+    });
+
+    dataImportInput.addEventListener("change", function () {
+      var file = dataImportInput.files && dataImportInput.files[0];
+      if (file) { handleImportFile(file); }
+      // Reset so re-selecting the same file re-fires "change".
+      dataImportInput.value = "";
     });
 
     // ---- Rename saved-location modal ----------------------------------------
@@ -1703,9 +1797,9 @@
     var elSelector = document.getElementById("selector-section");
     var selectorVisToggle = document.getElementById("selector-vis-toggle");
 
-    // Default visible on first visit (key absent → not "1" → visible).
+    // Default visible on first visit (sub-key absent → false → visible).
     function readSelectorCollapsed() {
-      try { return localStorage.getItem(SELECTOR_COLLAPSE_KEY) === "1"; } catch (e) { return false; }
+      return store.get("selectorCollapsed", false) === true;
     }
 
     function applySelectorCollapsed(collapsed) {
@@ -1721,7 +1815,7 @@
 
     selectorVisToggle.addEventListener("change", function () {
       var collapsed = !selectorVisToggle.checked;
-      try { localStorage.setItem(SELECTOR_COLLAPSE_KEY, collapsed ? "1" : "0"); } catch (e) { /* ignore */ }
+      store.set("selectorCollapsed", collapsed);
       applySelectorCollapsed(collapsed);
     });
 
@@ -1792,9 +1886,9 @@
     // ---- 7-day forecast mode (persisted) -------------------------------------
     var forecastToggle = document.getElementById("forecast-toggle");
 
-    // Persisted off by default (key absent → not "1" → off).
+    // Persisted off by default (sub-key absent → false → off).
     function readForecastMode() {
-      try { return localStorage.getItem(FORECAST_KEY) === "1"; } catch (e) { return false; }
+      return store.get("forecast", false) === true;
     }
 
     // Show/hide the forecast section, sync the checkbox, persist the state, and
@@ -1805,7 +1899,7 @@
       var section = document.getElementById("forecast-section");
       if (section) { section.classList.toggle("hidden", !on); }
       if (forecastToggle) { forecastToggle.checked = on; }
-      try { localStorage.setItem(FORECAST_KEY, on ? "1" : "0"); } catch (e) { /* ignore */ }
+      store.set("forecast", on);
       primarySlot.forecastLabel.classList.toggle("hidden", !(on && compareMode));
       secondarySlot.forecastList.classList.toggle("hidden", !(on && compareMode));
       secondarySlot.forecastLabel.classList.toggle("hidden", !(on && compareMode));

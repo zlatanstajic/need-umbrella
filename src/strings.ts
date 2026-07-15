@@ -1,0 +1,257 @@
+import { Lang, LangBundle } from "./types";
+import { currentLang } from "./state";
+
+// ---- i18n: dictionary and language state --------------------------------
+// All user-facing strings live here, keyed by language code ("sr" = Serbian
+// in Latin script, "en" = English). Entries that need runtime values are
+// function-valued (string concatenation only, no template literals) to keep
+// the pre-ES6 style. describe() condition labels live under STRINGS[lang].cond.
+export var STRINGS: Record<Lang, LangBundle> = {
+  sr: {
+    title: "Treba li kišobran? — Vremenska prognoza",
+    headerTitle: "Treba li kišobran? ☔",
+    headerRain: "Treba vam kišobran ☔",
+    headerDry: "Ostavite kišobran 🌤️",
+    headerSubtitle: "Trenutno vreme i prognoza kiše za narednih 24h",
+    settingsTitle: "Podešavanja",
+    settingsOpen: "Podešavanja",
+    settingsClose: "Zatvori",
+    languageLabel: "Jezik",
+    tabGps: "📍 GPS",
+    tabCity: "🏙️ Grad",
+    selectorSection: "Izbor lokacije",
+    selectorVisLabel: "Prikaži izbor lokacije",
+    compareLabel: "Uporedi dve lokacije",
+    compareSecondHeading: "Druga lokacija",
+    forecastLabel: "Prognoza za 7 dana",
+    dataLabel: "Podaci",
+    exportBtn: "Izvezi",
+    importBtn: "Uvezi",
+    importInvalid: "Neispravna datoteka. Podaci nisu promenjeni.",
+    importOk: "Podaci su uvezeni.",
+    gpsBtn: "📍 Koristi moju lokaciju",
+    saveLocation: "Sačuvaj lokaciju",
+    removeLocation: "Ukloni lokaciju",
+    editLocation: "Izmeni naziv",
+    editTitle: "Naziv lokacije",
+    editPlaceholder: "Unesite naziv",
+    renameSave: "Sačuvaj",
+    renameCancel: "Otkaži",
+    locationSaved: "Lokacija sačuvana.",
+    tabSearch: "🔍 Pretraga",
+    searchPlaceholder: "Unesite naziv mesta",
+    searchBtn: "Traži",
+    searchNoResults: "Nema rezultata.",
+    searchError: "Pretraga nije uspela.",
+    cityCustom: "📍 Prilagođena lokacija",
+    next24: "Narednih 24 sata",
+    next7: "Narednih 7 dana",
+    today: "Danas",
+    days: ["Ned", "Pon", "Uto", "Sre", "Čet", "Pet", "Sub"],
+    tileHumidity: "Vlažnost",
+    tileWind: "Vetar",
+    tilePressure: "Pritisak",
+    tileCloud: "Oblačnost",
+    footerData: "Podaci o vremenu sa",
+    footerLicensed: ", licencirani pod",
+    footerSource: "Izvor na GitHub-u",
+    loading: "Učitavanje prognoze…",
+    errorPrefix: "Učitavanje prognoze nije uspelo: ",
+    httpError: function (status) { return "Vremenski servis je vratio HTTP " + status; },
+    noData: "Nema dostupne prognoze za ovu lokaciju.",
+    geoUnavailable: "Geolokacija nije dostupna — prikazujem Beograd.",
+    geoDenied: "Pristup lokaciji odbijen ili nedostupan — prikazujem Beograd.",
+    rainSummary: function (start, stop, total) { return "(" + start + "–" + stop + ", " + total + ")"; },
+    rainBanner: function (totalText) { return "☔ Očekuje se kiša — " + totalText + " u narednih 24h. Ponesite kišobran!"; },
+    dryBanner: function (totalText) { return "🌤️ Nema značajne kiše — očekuje se " + totalText + " u narednih 24h."; },
+    myLocation: function (lat, lon) { return "Moja lokacija (" + lat + ", " + lon + ")"; },
+    feelsLike: function (v) { return "Oseća se kao " + v + "°C"; },
+    condFallback: "Trenutni uslovi",
+    cond: {
+      clearsky: "Vedro",
+      fair: "Pretežno vedro",
+      partlycloudy: "Delimično oblačno",
+      cloudy: "Oblačno",
+      fog: "Magla",
+
+      lightrain: "Slaba kiša",
+      rain: "Kiša",
+      heavyrain: "Jaka kiša",
+      lightrainshowers: "Slabi pljuskovi",
+      rainshowers: "Pljuskovi",
+      heavyrainshowers: "Jaki pljuskovi",
+
+      lightsleet: "Slaba susnežica",
+      sleet: "Susnežica",
+      heavysleet: "Jaka susnežica",
+      lightsleetshowers: "Slabi pljuskovi susnežice",
+      sleetshowers: "Pljuskovi susnežice",
+      heavysleetshowers: "Jaki pljuskovi susnežice",
+      lightssleetshowers: "Slabi pljuskovi susnežice",
+
+      lightsnow: "Slab sneg",
+      snow: "Sneg",
+      heavysnow: "Jak sneg",
+      lightsnowshowers: "Slabi snežni pljuskovi",
+      snowshowers: "Snežni pljuskovi",
+      heavysnowshowers: "Jaki snežni pljuskovi",
+      lightssnowshowers: "Slabi snežni pljuskovi",
+
+      lightrainandthunder: "Slaba kiša i grmljavina",
+      rainandthunder: "Kiša i grmljavina",
+      heavyrainandthunder: "Jaka kiša i grmljavina",
+      lightrainshowersandthunder: "Slabi pljuskovi i grmljavina",
+      rainshowersandthunder: "Pljuskovi i grmljavina",
+      heavyrainshowersandthunder: "Jaki pljuskovi i grmljavina",
+      lightsleetandthunder: "Slaba susnežica i grmljavina",
+      sleetandthunder: "Susnežica i grmljavina",
+      heavysleetandthunder: "Jaka susnežica i grmljavina",
+      lightsleetshowersandthunder: "Slabi pljuskovi susnežice i grmljavina",
+      sleetshowersandthunder: "Pljuskovi susnežice i grmljavina",
+      heavysleetshowersandthunder: "Jaki pljuskovi susnežice i grmljavina",
+      lightssleetshowersandthunder: "Slabi pljuskovi susnežice i grmljavina",
+      lightsnowandthunder: "Slab sneg i grmljavina",
+      snowandthunder: "Sneg i grmljavina",
+      heavysnowandthunder: "Jak sneg i grmljavina",
+      lightsnowshowersandthunder: "Slabi snežni pljuskovi i grmljavina",
+      snowshowersandthunder: "Snežni pljuskovi i grmljavina",
+      heavysnowshowersandthunder: "Jaki snežni pljuskovi i grmljavina",
+      lightssnowshowersandthunder: "Slabi snežni pljuskovi i grmljavina"
+    }
+  },
+  en: {
+    title: "Need Umbrella? — Weather",
+    headerTitle: "Need Umbrella? ☔",
+    headerRain: "You need an umbrella ☔",
+    headerDry: "Leave umbrella 🌤️",
+    headerSubtitle: "Live weather and 24-hour rain outlook",
+    settingsTitle: "Settings",
+    settingsOpen: "Settings",
+    settingsClose: "Close",
+    languageLabel: "Language",
+    tabGps: "📍 GPS",
+    tabCity: "🏙️ City",
+    selectorSection: "Choose location",
+    selectorVisLabel: "Show location selector",
+    compareLabel: "Compare two locations",
+    compareSecondHeading: "Second location",
+    forecastLabel: "7-day forecast",
+    dataLabel: "Data",
+    exportBtn: "Export",
+    importBtn: "Import",
+    importInvalid: "Invalid file. Your data was not changed.",
+    importOk: "Data imported.",
+    gpsBtn: "📍 Use my location",
+    saveLocation: "Save location",
+    removeLocation: "Remove location",
+    editLocation: "Edit name",
+    editTitle: "Location name",
+    editPlaceholder: "Enter a name",
+    renameSave: "Save",
+    renameCancel: "Cancel",
+    locationSaved: "Location saved.",
+    tabSearch: "🔍 Search",
+    searchPlaceholder: "Enter a place name",
+    searchBtn: "Search",
+    searchNoResults: "No results found.",
+    searchError: "Search failed.",
+    cityCustom: "📍 Custom location",
+    next24: "Next 24 hours",
+    next7: "Next 7 days",
+    today: "Today",
+    days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    tileHumidity: "Humidity",
+    tileWind: "Wind",
+    tilePressure: "Pressure",
+    tileCloud: "Cloud cover",
+    footerData: "Weather data from",
+    footerLicensed: ", licensed under",
+    footerSource: "Source on GitHub",
+    loading: "Loading weather…",
+    errorPrefix: "Could not load weather: ",
+    httpError: function (status) { return "Weather service returned HTTP " + status; },
+    noData: "No forecast data available for this location.",
+    geoUnavailable: "Geolocation unavailable — showing Belgrade instead.",
+    geoDenied: "Location access denied or unavailable — showing Belgrade instead.",
+    rainSummary: function (start, stop, total) { return "(" + start + "–" + stop + ", " + total + ")"; },
+    rainBanner: function (totalText) { return "☔ Rain expected — " + totalText + " over the next 24h. Take an umbrella!"; },
+    dryBanner: function (totalText) { return "🌤️ No significant rain — " + totalText + " expected over the next 24h."; },
+    myLocation: function (lat, lon) { return "My location (" + lat + ", " + lon + ")"; },
+    feelsLike: function (v) { return "Feels like " + v + "°C"; },
+    condFallback: "Current conditions",
+    cond: {
+      clearsky: "Clear sky",
+      fair: "Fair",
+      partlycloudy: "Partly cloudy",
+      cloudy: "Cloudy",
+      fog: "Fog",
+
+      lightrain: "Light rain",
+      rain: "Rain",
+      heavyrain: "Heavy rain",
+      lightrainshowers: "Light rain showers",
+      rainshowers: "Rain showers",
+      heavyrainshowers: "Heavy rain showers",
+
+      lightsleet: "Light sleet",
+      sleet: "Sleet",
+      heavysleet: "Heavy sleet",
+      lightsleetshowers: "Light sleet showers",
+      sleetshowers: "Sleet showers",
+      heavysleetshowers: "Heavy sleet showers",
+      lightssleetshowers: "Light sleet showers",
+
+      lightsnow: "Light snow",
+      snow: "Snow",
+      heavysnow: "Heavy snow",
+      lightsnowshowers: "Light snow showers",
+      snowshowers: "Snow showers",
+      heavysnowshowers: "Heavy snow showers",
+      lightssnowshowers: "Light snow showers",
+
+      lightrainandthunder: "Light rain and thunder",
+      rainandthunder: "Rain and thunder",
+      heavyrainandthunder: "Heavy rain and thunder",
+      lightrainshowersandthunder: "Light rain showers and thunder",
+      rainshowersandthunder: "Rain showers and thunder",
+      heavyrainshowersandthunder: "Heavy rain showers and thunder",
+      lightsleetandthunder: "Light sleet and thunder",
+      sleetandthunder: "Sleet and thunder",
+      heavysleetandthunder: "Heavy sleet and thunder",
+      lightsleetshowersandthunder: "Light sleet showers and thunder",
+      sleetshowersandthunder: "Sleet showers and thunder",
+      heavysleetshowersandthunder: "Heavy sleet showers and thunder",
+      lightssleetshowersandthunder: "Light sleet showers and thunder",
+      lightsnowandthunder: "Light snow and thunder",
+      snowandthunder: "Snow and thunder",
+      heavysnowandthunder: "Heavy snow and thunder",
+      lightsnowshowersandthunder: "Light snow showers and thunder",
+      snowshowersandthunder: "Snow showers and thunder",
+      heavysnowshowersandthunder: "Heavy snow showers and thunder",
+      lightssnowshowersandthunder: "Light snow showers and thunder"
+    }
+  }
+};
+
+// Look up a plain string for the active language; fall back to the key.
+// Returns the raw entry, which for known keys is a string (or the `days`
+// array); callers that need a specific shape narrow at the call site.
+export function t(key: string): any {
+  var bundle = STRINGS[currentLang] || {};
+  if (Object.prototype.hasOwnProperty.call(bundle, key)) {
+    return bundle[key];
+  }
+  return key;
+}
+
+// Look up a function-valued string and call it with the given args; fall
+// back to the key if missing or not callable.
+export function tf(key: string, ...rest: Array<string | number>): string {
+  var bundle = STRINGS[currentLang] || {};
+  var entry = bundle[key];
+  if (typeof entry === "function") {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return entry.apply(null, args);
+  }
+  return key;
+}

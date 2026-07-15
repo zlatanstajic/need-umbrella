@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://zlatanstajic.github.io/need-umbrella/sitemap.xml

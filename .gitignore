@@ -10,3 +10,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Node / TypeScript toolchain (build output assets/js/app.js stays committed)
+node_modules/
+dist/
+coverage/

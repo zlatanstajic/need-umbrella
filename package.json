@@ -1,0 +1,22 @@
+{
+  "name": "need-umbrella",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Single-page worldwide weather app — current conditions + 24h rain outlook.",
+  "scripts": {
+    "build": "esbuild src/app.ts --bundle --format=iife --target=es2017 --outfile=assets/js/app.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "esbuild": "^0.25.12",
+    "husky": "^9.1.7",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.10"
+  }
+}

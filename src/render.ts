@@ -1,7 +1,8 @@
 import { MetInstantDetails, MetTimeseriesEntry, Slot } from "./types";
 import { STRINGS, t, tf } from "./strings";
-import { currentLang, compareMode, secondaryLocation } from "./state";
+import { currentLang, compareMode, secondaryLocation, rainThresholdOn } from "./state";
 import { degreesToCompass, hourText } from "./util";
+import { effectiveThreshold } from "./threshold";
 import { PRECIP_THRESHOLD_MM } from "./constants";
 import { primarySlot, secondarySlot } from "./dom";
 
@@ -165,6 +166,10 @@ export function renderPrecip(timeseries: MetTimeseriesEntry[], slot: Slot): void
   var now = nowDate.getTime();
   var horizon = now + 24 * 60 * 60 * 1000;
 
+  // One cutoff for every verdict below: the user threshold when enabled, else
+  // the 0.1 baseline. Bars/amounts stay the real mm values regardless.
+  var thr = effectiveThreshold();
+
   var hours: { time: number; amount: number }[] = [];
   var total = 0;
 
@@ -191,7 +196,7 @@ export function renderPrecip(timeseries: MetTimeseriesEntry[], slot: Slot): void
   // Banner.
   slot.precipBanner.classList.remove("rain", "dry");
   var totalText = total.toFixed(1) + " mm";
-  var isRain = total >= PRECIP_THRESHOLD_MM;
+  var isRain = total >= thr;
   if (isRain) {
     slot.precipBanner.classList.add("rain");
     slot.precipBanner.textContent = tf("rainBanner", totalText);
@@ -202,15 +207,15 @@ export function renderPrecip(timeseries: MetTimeseriesEntry[], slot: Slot): void
 
   // Rain-window summary: first hour at/above the threshold starts the window,
   // the first dry hour after that stops it (when rain FIRST stops, not last).
-  // Divergence is intentional: isRain uses the 24h TOTAL >= threshold, but the
-  // window uses PER-HOUR >= threshold, so a rainy banner with only sub-threshold
+  // Divergence is intentional: isRain uses the 24h TOTAL >= thr, but the
+  // window uses PER-HOUR >= thr, so a rainy banner with only sub-threshold
   // hours (no concentrated rainy hour) shows no window — summary stays blank.
   if (slot.summary) {
     var startTime: number | null = null;
     var stopTime: number | null = null;
     var windowTotal = 0;
     for (var w = 0; w < hours.length; w++) {
-      if (hours[w].amount >= PRECIP_THRESHOLD_MM) {
+      if (hours[w].amount >= thr) {
         if (startTime === null) { startTime = hours[w].time; }
         stopTime = hours[w].time + 60 * 60 * 1000;
         windowTotal += hours[w].amount;
@@ -222,6 +227,21 @@ export function renderPrecip(timeseries: MetTimeseriesEntry[], slot: Slot): void
       slot.summary.textContent = tf("rainSummary", hourText(startTime), hourText(stopTime as number), windowTotal.toFixed(1) + " mm");
     } else {
       slot.summary.textContent = "";
+    }
+  }
+
+  // Threshold disclaimer: show only when the raised threshold is actively
+  // hiding real rain — i.e. it's on, the verdict is "no rain", yet there IS
+  // measurable precipitation (>= the 0.1 baseline) that a normal cutoff would
+  // have counted. Silent when it genuinely won't rain (no precipitation) or
+  // when the threshold is off / not suppressing anything.
+  if (slot.thresholdNote) {
+    if (rainThresholdOn && !isRain && total >= PRECIP_THRESHOLD_MM) {
+      slot.thresholdNote.textContent = tf("thresholdIgnored", thr.toFixed(1) + " mm");
+      slot.thresholdNote.classList.remove("hidden");
+    } else {
+      slot.thresholdNote.textContent = "";
+      slot.thresholdNote.classList.add("hidden");
     }
   }
 

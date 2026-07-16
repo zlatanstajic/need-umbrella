@@ -63,6 +63,21 @@
   function setSyncingScroll(v) {
     syncingScroll = v;
   }
+  var rainThresholdOn = (function() {
+    var raw = store.get("rainThreshold", { on: false, mm: 0.5 });
+    return !!(raw && raw.on);
+  })();
+  function setRainThresholdOn(v) {
+    rainThresholdOn = v;
+  }
+  var rainThresholdMm = (function() {
+    var raw = store.get("rainThreshold", { on: false, mm: 0.5 });
+    var mm = raw ? Number(raw.mm) : 0.5;
+    return typeof mm === "number" && isFinite(mm) ? mm : 0.5;
+  })();
+  function setRainThresholdMm(v) {
+    rainThresholdMm = v;
+  }
 
   // src/dom.ts
   function el(id) {
@@ -95,6 +110,7 @@
     chart: elChart,
     chartLabel: document.getElementById("chart-label-a"),
     summary: document.getElementById("rain-summary-a"),
+    thresholdNote: document.getElementById("threshold-note-a"),
     feels: document.getElementById("cur-feels"),
     forecastList: document.getElementById("forecast-list"),
     forecastLabel: document.getElementById("forecast-label-a")
@@ -112,6 +128,7 @@
     chart: el("b-chart"),
     chartLabel: document.getElementById("chart-label-b"),
     summary: document.getElementById("rain-summary-b"),
+    thresholdNote: document.getElementById("threshold-note-b"),
     feels: document.getElementById("b-cur-feels"),
     forecastList: document.getElementById("forecast-list-b"),
     forecastLabel: document.getElementById("forecast-label-b")
@@ -150,6 +167,7 @@
       compareLabel: "Uporedi dve lokacije",
       compareSecondHeading: "Druga lokacija",
       forecastLabel: "Prognoza za 7 dana",
+      rainThresholdLabel: "Prag za ki\u0161u (mm)",
       dataLabel: "Podaci",
       exportBtn: "Izvezi",
       importBtn: "Uvezi",
@@ -197,6 +215,9 @@
       },
       dryBanner: function(totalText) {
         return "\u{1F324}\uFE0F Nema zna\u010Dajne ki\u0161e \u2014 o\u010Dekuje se " + totalText + " u narednih 24h.";
+      },
+      thresholdIgnored: function(mmText) {
+        return "\u24D8 Prag za ki\u0161u je uklju\u010Den \u2014 padavine ispod " + mmText + " se zanemaruju.";
       },
       myLocation: function(lat, lon) {
         return "Moja lokacija (" + lat + ", " + lon + ")";
@@ -270,6 +291,7 @@
       compareLabel: "Compare two locations",
       compareSecondHeading: "Second location",
       forecastLabel: "7-day forecast",
+      rainThresholdLabel: "Rain threshold (mm)",
       dataLabel: "Data",
       exportBtn: "Export",
       importBtn: "Import",
@@ -317,6 +339,9 @@
       },
       dryBanner: function(totalText) {
         return "\u{1F324}\uFE0F No significant rain \u2014 " + totalText + " expected over the next 24h.";
+      },
+      thresholdIgnored: function(mmText) {
+        return "\u24D8 Rain threshold is on \u2014 precipitation below " + mmText + " is ignored.";
       },
       myLocation: function(lat, lon) {
         return "My location (" + lat + ", " + lon + ")";
@@ -405,6 +430,9 @@
     return city.names && city.names[currentLang] || city.names && city.names.en || "";
   }
   var PRECIP_THRESHOLD_MM = 0.1;
+  var RAIN_THRESHOLD_MIN = 0.1;
+  var RAIN_THRESHOLD_MAX = 100;
+  var RAIN_THRESHOLD_DEFAULT = 0.5;
 
   // src/util.ts
   function round4(n) {
@@ -570,6 +598,33 @@
     return "https://api.met.no/weatherapi/locationforecast/2.0/compact?" + params.toString();
   }
 
+  // src/threshold.ts
+  function clampThreshold(mm) {
+    if (typeof mm !== "number" || !isFinite(mm)) {
+      return RAIN_THRESHOLD_DEFAULT;
+    }
+    if (mm < RAIN_THRESHOLD_MIN) {
+      return RAIN_THRESHOLD_MIN;
+    }
+    if (mm > RAIN_THRESHOLD_MAX) {
+      return RAIN_THRESHOLD_MAX;
+    }
+    return mm;
+  }
+  function readRainThreshold() {
+    var raw = store.get("rainThreshold", { on: false, mm: RAIN_THRESHOLD_DEFAULT });
+    if (!raw) {
+      return { on: false, mm: RAIN_THRESHOLD_DEFAULT };
+    }
+    return { on: !!raw.on, mm: clampThreshold(Number(raw.mm)) };
+  }
+  function effectiveThreshold() {
+    return rainThresholdOn ? clampThreshold(rainThresholdMm) : PRECIP_THRESHOLD_MM;
+  }
+  function saveRainThreshold(on, mm) {
+    store.set("rainThreshold", { on: !!on, mm: clampThreshold(mm) });
+  }
+
   // src/render.ts
   function symbolToEmoji(code) {
     if (!code) {
@@ -694,6 +749,7 @@
     nowDate.setMinutes(0, 0, 0);
     var now = nowDate.getTime();
     var horizon = now + 24 * 60 * 60 * 1e3;
+    var thr = effectiveThreshold();
     var hours = [];
     var total = 0;
     for (var i = 0; i < timeseries.length; i++) {
@@ -711,7 +767,7 @@
     }
     slot.precipBanner.classList.remove("rain", "dry");
     var totalText = total.toFixed(1) + " mm";
-    var isRain = total >= PRECIP_THRESHOLD_MM;
+    var isRain = total >= thr;
     if (isRain) {
       slot.precipBanner.classList.add("rain");
       slot.precipBanner.textContent = tf("rainBanner", totalText);
@@ -724,7 +780,7 @@
       var stopTime = null;
       var windowTotal = 0;
       for (var w = 0; w < hours.length; w++) {
-        if (hours[w].amount >= PRECIP_THRESHOLD_MM) {
+        if (hours[w].amount >= thr) {
           if (startTime === null) {
             startTime = hours[w].time;
           }
@@ -738,6 +794,15 @@
         slot.summary.textContent = tf("rainSummary", hourText(startTime), hourText(stopTime), windowTotal.toFixed(1) + " mm");
       } else {
         slot.summary.textContent = "";
+      }
+    }
+    if (slot.thresholdNote) {
+      if (rainThresholdOn && !isRain && total >= PRECIP_THRESHOLD_MM) {
+        slot.thresholdNote.textContent = tf("thresholdIgnored", thr.toFixed(1) + " mm");
+        slot.thresholdNote.classList.remove("hidden");
+      } else {
+        slot.thresholdNote.textContent = "";
+        slot.thresholdNote.classList.add("hidden");
       }
     }
     slot.isRain = isRain;
@@ -960,6 +1025,13 @@
         if (cmpLoc) {
           out.compare = { on: !!cmp.on, loc: cmpLoc };
         }
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(src, "rainThreshold")) {
+      sawKnownKey = true;
+      var rt = src.rainThreshold;
+      if (rt && typeof rt === "object" && Object.prototype.toString.call(rt) === "[object Object]") {
+        out.rainThreshold = { on: !!rt.on, mm: clampThreshold(Number(rt.mm)) };
       }
     }
     if (!sawKnownKey) {
@@ -1674,6 +1746,42 @@
   forecastToggle.addEventListener("change", function() {
     applyForecastMode(forecastToggle.checked);
   });
+  var rainThresholdToggle = el("rain-threshold-toggle");
+  var rainThresholdInput = el("rain-threshold-input");
+  function rerenderVerdicts() {
+    if (primarySlot.timeseries) {
+      renderPrecip(primarySlot.timeseries, primarySlot);
+      if (forecastMode) {
+        renderDaily(primarySlot.timeseries, primarySlot);
+      }
+    }
+    if (compareMode && secondarySlot.timeseries) {
+      renderPrecip(secondarySlot.timeseries, secondarySlot);
+      if (forecastMode) {
+        renderDaily(secondarySlot.timeseries, secondarySlot);
+      }
+    }
+    updateHeaderTitle();
+  }
+  function applyRainThreshold() {
+    var raw = rainThresholdInput.value.trim();
+    var mm = clampThreshold(raw === "" ? RAIN_THRESHOLD_DEFAULT : Number(raw));
+    var on = rainThresholdToggle.checked;
+    setRainThresholdOn(on);
+    setRainThresholdMm(mm);
+    rainThresholdInput.value = String(mm);
+    saveRainThreshold(on, mm);
+    rerenderVerdicts();
+  }
+  rainThresholdToggle.addEventListener("change", applyRainThreshold);
+  rainThresholdInput.addEventListener("change", applyRainThreshold);
+  function restoreRainThreshold() {
+    var state = readRainThreshold();
+    setRainThresholdOn(state.on);
+    setRainThresholdMm(state.mm);
+    rainThresholdToggle.checked = state.on;
+    rainThresholdInput.value = String(state.mm);
+  }
   function attachClearButton(input) {
     var wrap = document.createElement("span");
     wrap.className = "input-wrap";
@@ -1708,6 +1816,7 @@
     markActiveLang();
     applyStaticStrings();
     attachClearButtons();
+    restoreRainThreshold();
     renderSavedLocations();
     applySelectorCollapsed(readSelectorCollapsed());
     loadWeather(loadSavedLocation() || BELGRADE);

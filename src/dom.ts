@@ -39,6 +39,7 @@ export var primarySlot: Slot = {
   chart: elChart,
   chartLabel: document.getElementById("chart-label-a"),
   summary: document.getElementById("rain-summary-a"),
+  thresholdNote: document.getElementById("threshold-note-a"),
   feels: document.getElementById("cur-feels"),
   forecastList: document.getElementById("forecast-list"),
   forecastLabel: document.getElementById("forecast-label-a")
@@ -58,6 +59,7 @@ export var secondarySlot: Slot = {
   chart: el("b-chart"),
   chartLabel: document.getElementById("chart-label-b"),
   summary: document.getElementById("rain-summary-b"),
+  thresholdNote: document.getElementById("threshold-note-b"),
   feels: document.getElementById("b-cur-feels"),
   forecastList: document.getElementById("forecast-list-b"),
   forecastLabel: document.getElementById("forecast-label-b")

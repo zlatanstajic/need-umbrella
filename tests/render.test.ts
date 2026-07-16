@@ -7,7 +7,10 @@ import {
   updateHeaderTitle
 } from "../src/render";
 import { STRINGS, t } from "../src/strings";
-import { setCurrentLang, setCompareMode, setSecondaryLocation } from "../src/state";
+import {
+  setCurrentLang, setCompareMode, setSecondaryLocation,
+  setRainThresholdOn, setRainThresholdMm
+} from "../src/state";
 import { primarySlot, secondarySlot } from "../src/dom";
 import { MetTimeseriesEntry, Slot } from "../src/types";
 
@@ -25,6 +28,7 @@ function makeSlot(): Slot {
     chart: document.createElement("div"),
     chartLabel: document.createElement("div"),
     summary: document.createElement("div"),
+    thresholdNote: document.createElement("div"),
     feels: document.createElement("div"),
     forecastList: null,
     forecastLabel: null
@@ -36,6 +40,8 @@ beforeEach(function () {
   setCurrentLang("sr");
   setCompareMode(false);
   setSecondaryLocation(null);
+  setRainThresholdOn(false);
+  setRainThresholdMm(0.5);
 });
 
 afterEach(function () {
@@ -211,6 +217,98 @@ describe("renderPrecip", function () {
     expect(slot.precipBanner.classList.contains("dry")).toBe(true);
     expect(slot.isRain).toBe(false);
     expect(slot.summary!.textContent).toBe("");
+  });
+
+  it("suppresses the rain verdict when the threshold is enabled above the 24h total", function () {
+    setCurrentLang("en");
+    var now = new Date(2026, 0, 15, 10, 0, 0).getTime();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    var slot = makeSlot();
+    // 24h total = 0.8 mm; enable threshold at 2 mm so it reads dry.
+    setRainThresholdOn(true);
+    setRainThresholdMm(2);
+    var ts = [
+      tsEntry(now, 0, 0),
+      tsEntry(now, 1, 0.5),
+      tsEntry(now, 2, 0.3),
+      tsEntry(now, 3, 0)
+    ];
+    renderPrecip(ts, slot);
+    // Verdict flips to dry, no rain-window summary, header does not go umbrella.
+    expect(slot.precipBanner.classList.contains("dry")).toBe(true);
+    expect(slot.isRain).toBe(false);
+    expect(slot.summary!.textContent).toBe("");
+    // But the real mm bars/amounts are unchanged — 4 columns still render.
+    expect(slot.chart.querySelectorAll(".bar-col").length).toBe(4);
+    // The disclaimer surfaces the ignored rain and names the active cutoff.
+    expect(slot.thresholdNote!.classList.contains("hidden")).toBe(false);
+    expect(slot.thresholdNote!.textContent).toContain("2.0 mm");
+  });
+
+  it("hides the threshold disclaimer when it genuinely will not rain (no precip)", function () {
+    setCurrentLang("en");
+    var now = new Date(2026, 0, 15, 10, 0, 0).getTime();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    var slot = makeSlot();
+    // Threshold on, but zero precipitation — nothing is being ignored.
+    setRainThresholdOn(true);
+    setRainThresholdMm(2);
+    var ts = [tsEntry(now, 0, 0), tsEntry(now, 1, 0)];
+    renderPrecip(ts, slot);
+    expect(slot.isRain).toBe(false);
+    expect(slot.thresholdNote!.classList.contains("hidden")).toBe(true);
+    expect(slot.thresholdNote!.textContent).toBe("");
+  });
+
+  it("hides the threshold disclaimer when the threshold is off", function () {
+    setCurrentLang("en");
+    var now = new Date(2026, 0, 15, 10, 0, 0).getTime();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    var slot = makeSlot();
+    setRainThresholdOn(false);
+    var ts = [tsEntry(now, 0, 0), tsEntry(now, 1, 0.3)];
+    renderPrecip(ts, slot);
+    expect(slot.thresholdNote!.classList.contains("hidden")).toBe(true);
+  });
+
+  it("hides the threshold disclaimer when the verdict is still rain", function () {
+    setCurrentLang("en");
+    var now = new Date(2026, 0, 15, 10, 0, 0).getTime();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    var slot = makeSlot();
+    // Threshold on but total (0.8) still clears it (0.5) — verdict is rain,
+    // so nothing is being ignored.
+    setRainThresholdOn(true);
+    setRainThresholdMm(0.5);
+    var ts = [tsEntry(now, 0, 0.5), tsEntry(now, 1, 0.3)];
+    renderPrecip(ts, slot);
+    expect(slot.isRain).toBe(true);
+    expect(slot.thresholdNote!.classList.contains("hidden")).toBe(true);
+  });
+
+  it("keeps the 0.1 behavior when the threshold is disabled (real mm intact)", function () {
+    setCurrentLang("en");
+    var now = new Date(2026, 0, 15, 10, 0, 0).getTime();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    var slot = makeSlot();
+    setRainThresholdOn(false);
+    setRainThresholdMm(2);
+    var ts = [
+      tsEntry(now, 0, 0),
+      tsEntry(now, 1, 0.5),
+      tsEntry(now, 2, 0.3),
+      tsEntry(now, 3, 0)
+    ];
+    renderPrecip(ts, slot);
+    expect(slot.precipBanner.classList.contains("rain")).toBe(true);
+    expect(slot.precipBanner.textContent).toContain("0.8 mm");
+    expect(slot.isRain).toBe(true);
+    expect(slot.chart.querySelectorAll(".bar-col").length).toBe(4);
   });
 
   it("ignores entries outside the 24h window and missing next_1_hours (treated as 0)", function () {

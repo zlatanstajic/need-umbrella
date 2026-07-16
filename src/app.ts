@@ -6,6 +6,7 @@ import {
   compareMode, setCompareMode,
   secondaryLocation, setSecondaryLocation,
   forecastMode,
+  setRainThresholdOn, setRainThresholdMm,
   syncingScroll, setSyncingScroll
 } from "./state";
 import {
@@ -15,7 +16,7 @@ import {
   showOnly, showNotice, clearNotice
 } from "./dom";
 import { t, tf } from "./strings";
-import { CITIES, BELGRADE, cityName } from "./constants";
+import { CITIES, BELGRADE, cityName, RAIN_THRESHOLD_DEFAULT } from "./constants";
 import { round4, validLatLon } from "./util";
 import { reverseGeocode } from "./geo";
 import {
@@ -31,6 +32,7 @@ import {
   forecastToggle, readForecastMode, applyForecastMode
 } from "./forecast";
 import { exportData, handleImportFile } from "./data";
+import { clampThreshold, readRainThreshold, saveRainThreshold } from "./threshold";
 
 // ---- Linked chart scroll (compare mode) ---------------------------------
 // When comparing, scrolling one rain chart scrolls the other in lockstep.
@@ -823,6 +825,55 @@ forecastToggle.addEventListener("change", function () {
   applyForecastMode(forecastToggle.checked);
 });
 
+// ---- Rain threshold (persisted) ------------------------------------------
+var rainThresholdToggle = el<HTMLInputElement>("rain-threshold-toggle");
+var rainThresholdInput = el<HTMLInputElement>("rain-threshold-input");
+
+// Re-render every rain verdict from each slot's stashed timeseries, no refetch:
+// only the effective threshold changed, so bars/amounts stay but verdicts flip.
+function rerenderVerdicts(): void {
+  if (primarySlot.timeseries) {
+    renderPrecip(primarySlot.timeseries, primarySlot);
+    if (forecastMode) { renderDaily(primarySlot.timeseries, primarySlot); }
+  }
+  if (compareMode && secondarySlot.timeseries) {
+    renderPrecip(secondarySlot.timeseries, secondarySlot);
+    if (forecastMode) { renderDaily(secondarySlot.timeseries, secondarySlot); }
+  }
+  updateHeaderTitle();
+}
+
+// Read the input, clamp it into range (empty/NaN -> default), push the clamped
+// value back into state + the displayed field, persist, and re-render verdicts.
+function applyRainThreshold(): void {
+  // Treat a truly empty/cleared field as the default here, at the reading
+  // boundary — NOT inside clampThreshold, where a genuine typed 0 must still
+  // clamp to the minimum (0.1). Number("") is 0, which would otherwise clamp
+  // to 0.1 and silently override a cleared field.
+  var raw = rainThresholdInput.value.trim();
+  var mm = clampThreshold(raw === "" ? RAIN_THRESHOLD_DEFAULT : Number(raw));
+  var on = rainThresholdToggle.checked;
+  setRainThresholdOn(on);
+  setRainThresholdMm(mm);
+  rainThresholdInput.value = String(mm);
+  saveRainThreshold(on, mm);
+  rerenderVerdicts();
+}
+
+rainThresholdToggle.addEventListener("change", applyRainThreshold);
+rainThresholdInput.addEventListener("change", applyRainThreshold);
+
+// Sync the toggle checkbox + numeric input to the persisted state on load, and
+// push the same values through the state setters so the DOM, the live bindings,
+// and the stored blob all agree before the first verdict renders.
+function restoreRainThreshold(): void {
+  var state = readRainThreshold();
+  setRainThresholdOn(state.on);
+  setRainThresholdMm(state.mm);
+  rainThresholdToggle.checked = state.on;
+  rainThresholdInput.value = String(state.mm);
+}
+
 // ---- Default load -------------------------------------------------------
 // Wrap a text/number input so a clear ("x") button overlays its right edge.
 // Visibility is driven purely by CSS (:placeholder-shown); this only wires the
@@ -863,6 +914,7 @@ document.addEventListener("DOMContentLoaded", function () {
   markActiveLang();
   applyStaticStrings();
   attachClearButtons();
+  restoreRainThreshold();
   renderSavedLocations();
   applySelectorCollapsed(readSelectorCollapsed());
   loadWeather(loadSavedLocation() || BELGRADE);

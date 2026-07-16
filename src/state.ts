@@ -34,3 +34,21 @@ export function setForecastMode(v: boolean): void { forecastMode = v; }
 // Guards against the echo when linked chart scrolling sets scrollLeft.
 export let syncingScroll = false;
 export function setSyncingScroll(v: boolean): void { syncingScroll = v; }
+
+// User-configurable rain threshold. Initialized directly from store.get (NOT
+// from threshold.readRainThreshold) so state stays below threshold in the
+// import graph — threshold.effectiveThreshold() reads these live bindings.
+// The default 0.5 is inlined here (rather than imported from constants) because
+// constants.ts imports from state, so a state -> constants import would cycle.
+export let rainThresholdOn = (function (): boolean {
+  var raw = store.get("rainThreshold", { on: false, mm: 0.5 });
+  return !!(raw && raw.on);
+})();
+export function setRainThresholdOn(v: boolean): void { rainThresholdOn = v; }
+
+export let rainThresholdMm = (function (): number {
+  var raw = store.get("rainThreshold", { on: false, mm: 0.5 });
+  var mm = raw ? Number(raw.mm) : 0.5;
+  return (typeof mm === "number" && isFinite(mm)) ? mm : 0.5;
+})();
+export function setRainThresholdMm(v: number): void { rainThresholdMm = v; }

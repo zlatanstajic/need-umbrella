@@ -14,7 +14,8 @@ export default defineConfig({
         "src/forecast.ts",
         "src/strings.ts",
         "src/constants.ts",
-        "src/render.ts"
+        "src/render.ts",
+        "src/threshold.ts"
       ],
       exclude: [
         "src/app.ts",

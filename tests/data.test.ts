@@ -100,6 +100,30 @@ describe("validateImport", function () {
     expect(validateImport({ compare: { on: true, loc: { type: "gps", lat: 999, lon: 0 } } })).toEqual({});
     expect(validateImport({ compare: 42 })).toEqual({});
   });
+  it("accepts rainThreshold, coercing on and clamping mm", function () {
+    expect(validateImport({ rainThreshold: { on: 1, mm: 2.5 } }))
+      .toEqual({ rainThreshold: { on: true, mm: 2.5 } });
+    // Out-of-range mm clamps into [0.1, 100].
+    expect(validateImport({ rainThreshold: { on: true, mm: 999 } }))
+      .toEqual({ rainThreshold: { on: true, mm: 100 } });
+    expect(validateImport({ rainThreshold: { on: false, mm: 0 } }))
+      .toEqual({ rainThreshold: { on: false, mm: 0.1 } });
+    // Malformed mm coerces to the default.
+    expect(validateImport({ rainThreshold: { on: false, mm: "x" } }))
+      .toEqual({ rainThreshold: { on: false, mm: 0.5 } });
+  });
+  it("drops a malformed rainThreshold but keeps other known keys", function () {
+    expect(validateImport({ lang: "en", rainThreshold: 42 }))
+      .toEqual({ lang: "en" });
+    expect(validateImport({ lang: "en", rainThreshold: [1] }))
+      .toEqual({ lang: "en" });
+  });
+  it("counts a sole rainThreshold key as a recognizable shape", function () {
+    expect(validateImport({ rainThreshold: { on: true, mm: 1 } }))
+      .toEqual({ rainThreshold: { on: true, mm: 1 } });
+    // Present-but-malformed sole key still recognizes the shape (not null).
+    expect(validateImport({ rainThreshold: 42 })).toEqual({});
+  });
 });
 
 describe("handleImportFile", function () {

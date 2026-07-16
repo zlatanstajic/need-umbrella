@@ -134,6 +134,12 @@ export function renderDaily(timeseries: MetTimeseriesEntry[], slot: Slot): void 
 
     var precip = document.createElement("span");
     precip.className = "forecast-precip";
+    // The forecast row carries no dry/wet verdict today — it prints only the
+    // real mm total plus the symbol/description (which come from symbol_code,
+    // not precip). Per the resolved design decision, the rain-threshold feature
+    // leaves the forecast visuals untouched: effectiveThreshold() is applied
+    // only where a verdict already exists (banner/isRain/header, per-hour
+    // window). No dry/wet class is added here.
     precip.textContent = b.precip.toFixed(1) + " mm";
     row.appendChild(precip);
 

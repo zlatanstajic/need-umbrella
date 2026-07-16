@@ -145,8 +145,9 @@ by `lang|lat|lon`) so identical coords never re-fetch.
 
 **Persistence**: all persisted state lives in a single `localStorage` key,
 `nu:data`, holding one JSON object whose sub-keys are `lang`, `loc`, `geo`,
-`saved`, `selectorCollapsed`, `compare`, and `forecast` (all JSON;
-`selectorCollapsed` and `forecast` are real booleans, not `"1"`/`"0"` strings).
+`saved`, `selectorCollapsed`, `compare`, `forecast`, and `rainThreshold` (all
+JSON; `selectorCollapsed` and `forecast` are real booleans, not `"1"`/`"0"`
+strings; `rainThreshold` is `{ on: boolean, mm: number }`).
 Every read/write goes through the central accessor
 `store.get(subKey, fallback)` / `store.set(subKey, value)`, which is a
 read-modify-write of the single blob backed by `loadStore()` / `saveStore()`
@@ -272,6 +273,43 @@ falling back to the generic "current conditions" label. `setLanguage`
 re-renders the forecast directly from `primarySlot.timeseries` (guarded on
 `forecastMode` and the stash being present) so day labels re-localize even
 if the language-switch refetch fails.
+
+**Rain threshold**: a `.setting-row` in the **Settings modal** holds an
+enable/disable toggle (`#rain-threshold-toggle`) and a `type="number"` input
+(`#rain-threshold-input`, `min="0.1" max="100" step="0.1"`) letting the user
+raise the rain-verdict cutoff above the built-in `PRECIP_THRESHOLD_MM` (0.1 mm)
+baseline. State persists under the `rainThreshold` sub-key as `{ on, mm }`
+(default `{ on: false, mm: 0.5 }`) and is restored on `DOMContentLoaded`
+(`restoreRainThreshold` syncs the checkbox + input value and the live state
+bindings before the first verdict renders). The single helper
+`effectiveThreshold()` in [src/threshold.ts](src/threshold.ts) is the ONLY
+place the on/off decision lives — it returns `on ? clampThreshold(mm) :
+PRECIP_THRESHOLD_MM`, reading the `rainThresholdOn` / `rainThresholdMm` live
+state bindings so a toggle change takes effect without a refetch. Every rain
+verdict routes through it: `renderPrecip` uses it for both the 24h-total
+`isRain` compare and the per-hour rain-window start/stop, so raising the cutoff
+flips only verdicts — the real mm bars/amounts never change. When the raised
+threshold is actively **suppressing** real rain, `renderPrecip` shows a per-slot
+disclaimer in the "Next 24 hours" section (a `.threshold-note` div —
+`#threshold-note-a`/`#threshold-note-b`, wired as `slot.thresholdNote`) reading
+the localized `thresholdIgnored` string ("Rain threshold is on — precipitation
+below X mm is ignored"). It appears **only** when `rainThresholdOn && !isRain &&
+total >= PRECIP_THRESHOLD_MM` — i.e. the cutoff is on, the verdict flipped to
+dry, yet there's ≥ 0.1 mm of real precipitation being hidden; it stays hidden
+when it genuinely won't rain (no precip), when the threshold is off, and when
+the verdict is still rain. `clampThreshold`
+coerces NaN/non-finite input to the default (0.5) but clamps a genuine `0` to
+the minimum (0.1); the app.ts input handler treats a truly empty/cleared field
+as the default at the reading boundary (before `Number()`), not inside
+`clampThreshold`. Changing the toggle/input re-renders verdicts for both slots
+(`renderPrecip` + `renderDaily` when active) via `rerenderVerdicts` and calls
+`updateHeaderTitle`, no refetch. `validateImport` accepts the `rainThreshold`
+sub-key, coercing `on` to a real boolean and clamping `mm` via
+`clampThreshold`; a malformed/non-object value drops the key (still counting as
+a recognizable nu:data shape). The state bindings follow the state.ts setter
+pattern (`setRainThresholdOn` / `setRainThresholdMm`), initialized directly
+from `store.get` (not `readRainThreshold`) so `state` stays below `threshold`
+in the acyclic import graph.
 
 **Export / import data**: a "Data" (`dataLabel` / "Podaci") `.setting-row` at
 the bottom of the **Settings modal** carries an Export button

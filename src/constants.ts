@@ -22,3 +22,10 @@ export function cityName(city: City): string {
 }
 
 export var PRECIP_THRESHOLD_MM = 0.1;
+
+// User-configurable rain-threshold bounds (see src/threshold.ts). The default
+// applies on first visit / when the numeric field is cleared; the min matches
+// the built-in baseline so a user can never lower the cutoff below it.
+export var RAIN_THRESHOLD_MIN = 0.1;
+export var RAIN_THRESHOLD_MAX = 100;
+export var RAIN_THRESHOLD_DEFAULT = 0.5;

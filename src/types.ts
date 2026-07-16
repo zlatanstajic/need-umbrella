@@ -22,6 +22,14 @@ export interface CompareState {
   loc: LocationDescriptor | null;
 }
 
+// Persisted rain-threshold state: on/off plus the user cutoff in mm. When on,
+// rain <= mm is treated as "no rain" across every verdict; when off the app
+// uses the built-in PRECIP_THRESHOLD_MM (0.1) baseline.
+export interface RainThresholdState {
+  on: boolean;
+  mm: number;
+}
+
 // The single nu:data blob. Every sub-key is optional (a fresh user has none)
 // and read/written through the `store` accessor.
 export interface StoreData {
@@ -32,6 +40,7 @@ export interface StoreData {
   selectorCollapsed?: boolean;
   compare?: CompareState;
   forecast?: boolean;
+  rainThreshold?: RainThresholdState;
 }
 export type StoreKey = keyof StoreData;
 
@@ -105,6 +114,7 @@ export interface Slot {
   chart: HTMLElement;
   chartLabel: HTMLElement | null;
   summary: HTMLElement | null;
+  thresholdNote: HTMLElement | null;
   feels: HTMLElement | null;
   forecastList: HTMLElement | null;
   forecastLabel: HTMLElement | null;

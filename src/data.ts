@@ -3,6 +3,7 @@ import { loadStore, saveStore } from "./store";
 import { t } from "./strings";
 import { parseDescriptor } from "./location";
 import { validLatLon } from "./util";
+import { clampThreshold } from "./threshold";
 
 // ---- Export / import persisted data -------------------------------------
 // Download the whole nu:data blob as a pretty-printed JSON file. Degrades
@@ -77,6 +78,17 @@ export function validateImport(obj: unknown): StoreData | null {
     if (cmp && typeof cmp === "object") {
       var cmpLoc = parseDescriptor(cmp.loc);
       if (cmpLoc) { out.compare = { on: !!cmp.on, loc: cmpLoc }; }
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(src, "rainThreshold")) {
+    sawKnownKey = true;
+    var rt = src.rainThreshold as { on?: unknown; mm?: unknown } | null;
+    if (rt && typeof rt === "object" &&
+        Object.prototype.toString.call(rt) === "[object Object]") {
+      // Coerce on to a real boolean; clamp mm into [0.1, 100] (clampThreshold
+      // maps NaN/non-finite to the default). Malformed/non-object drops the key.
+      out.rainThreshold = { on: !!rt.on, mm: clampThreshold(Number(rt.mm)) };
     }
   }
 

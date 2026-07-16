@@ -135,6 +135,7 @@ describe("renderDaily", function () {
       chart: document.createElement("div"),
       chartLabel: chartLabel,
       summary: null,
+      thresholdNote: null,
       feels: null,
       forecastList: list,
       forecastLabel: document.createElement("div")

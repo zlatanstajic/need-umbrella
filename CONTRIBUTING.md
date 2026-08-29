@@ -1,108 +1,47 @@
-# Contributing to Need Umbrella? ☔
+# Contributing
 
-Thanks for considering a contribution! This file explains the recommended way to
-propose changes so they can be reviewed and merged quickly.
+Contributions are welcome. To propose a change:
 
-## What this project is
+1. **Open an issue, fork, and branch.** Open or identify the issue for the
+   change, fork the repository, then create a branch off `master`. Every
+   contribution branch must use the `issues/` prefix; use
+   `issues/<issue-number>-<short-description>`, all lowercase kebab-case (for
+   example, `issues/12-fix-location-search`). Do not use `feature/`, `fix/`, or
+   other branch prefixes.
+2. **Edit the source files.** Application logic belongs in [`src/`](src/),
+   markup in [`index.html`](index.html), and styles in
+   [`assets/css/style.css`](assets/css/style.css). Never edit the generated
+   [`assets/js/app.js`](assets/js/app.js) bundle by hand. Tests belong in
+   [`tests/`](tests/) as `*.test.ts` files.
+3. **Match the conventions.** Keep TypeScript strict and follow the existing
+   module style (`var`, function declarations, string concatenation, and no
+   template literals inside module bodies). Add every user-facing string to
+   both the Serbian Latin and English bundles in
+   [`src/strings.ts`](src/strings.ts). Reuse existing CSS custom properties,
+   and use DOM methods rather than `innerHTML` when building UI. See
+   [`CLAUDE.md`](CLAUDE.md) for the full architecture and conventions.
+4. **Rebuild generated assets.** After changing TypeScript, run
+   `npm run build` and include the regenerated `assets/js/app.js`. If the
+   social-preview image changes, update
+   [`scripts/gen-og-image.py`](scripts/gen-og-image.py), regenerate the image,
+   and include the resulting `assets/img/og-image.png`.
+5. **Test before submitting.** Run the same checks used by CI:
 
-A zero-dependency, single-page weather app. **Everything lives in one
-self-contained [`index.html`](index.html)** — inline CSS and vanilla
-JavaScript. There is **no build step, no dependencies, no tests, and no
-`package.json`**. The app is deployed via GitHub Pages at
-https://zlatanstajic.github.io/need-umbrella/.
+   ```bash
+   npm ci
+   npm run typecheck
+   npm run test:coverage
+   npm run build
+   ```
 
-Before contributing, skim [`CLAUDE.md`](CLAUDE.md) — it documents the
-architecture (the single `loadWeather` entry point, location descriptors, the
-slot-based compare mode, the `STRINGS` i18n dictionary, etc.) and the
-conventions that matter when editing.
+   Then serve the app with `python3 -m http.server 8000` and exercise the
+   affected behavior in a browser. For UI changes, check both languages,
+   responsive layouts, persistence after reload, and the browser console.
+6. **Open a pull request.** Push the `issues/` branch and open a PR against
+   `master`. Keep the PR focused, link the issue (for example, `Fixes #123`),
+   explain what changed and why, list the checks you ran, and include
+   screenshots for visible UI changes.
 
-## Quick start
-
-- Fork the repository and create a branch for your change (use `feature/` or
-  `fix/` prefixes).
-- Make focused, small changes directly in [`index.html`](index.html).
-- Test your change by loading the page in a browser (see below).
-- Open a Pull Request (PR) describing the change and link any related issue.
-
-## Develop / run
-
-There is nothing to install. Open [`index.html`](index.html) directly in a
-browser, or serve it locally:
-
-```bash
-python3 -m http.server 8000   # then visit http://localhost:8000
-```
-
-A local server is recommended so browser geolocation and the external APIs
-behave the same as in production.
-
-## Testing your change
-
-There are no automated tests, no lint, and no build. **Changes are validated by
-loading the page in a browser and exercising the affected paths.** Before
-opening a PR, manually verify:
-
-- The four location inputs still work: **GPS**, **City** dropdown, **Manual**
-  lat/lon, and free-text **Search**.
-- **Both languages** render correctly — switch between Serbian (Latin) and
-  English in the Settings modal.
-- **Saved locations** (save / rename / remove chips) and **Compare mode**
-  behave, and both persist across a reload (they use `localStorage`).
-- The current-conditions card, the 24-hour precipitation banner, and the hourly
-  bar chart all render.
-- No errors appear in the browser console.
-
-## Conventions that matter when editing
-
-These are the rules most likely to trip up a contribution. The full list is in
-[`CLAUDE.md`](CLAUDE.md).
-
-- **i18n** — all user-facing strings live in the `STRINGS` dictionary
-  (`STRINGS.sr` Latin / `STRINGS.en`). **Any new string must be added to both
-  language bundles.** Static DOM nodes use `data-i18n` /
-  `data-i18n-placeholder` hooks; dynamic strings are read via `t(key)` /
-  `tf(key, ...)`. Deliberate non-localized exceptions exist (unit suffixes,
-  compass abbreviations, footer proper nouns) — see `CLAUDE.md`.
-- **Pre-ES6 style** — the JavaScript is intentionally written in an old-school
-  style: `var` (no `let`/`const`), `function` declarations (no arrow
-  functions), string concatenation (no template literals), and no ES modules.
-  **Match the surrounding style.**
-- **Chart is built with DOM methods only** (`createElement` / `appendChild`),
-  never `innerHTML`. Preserve this.
-- **CSS uses `:root` custom properties** — reuse the existing variables rather
-  than hard-coding colors.
-- **No new dependencies or build step.** A change that requires npm, a bundler,
-  or a framework is out of scope for this project — open an issue to discuss
-  first.
-
-## Issues
-
-- Open an issue to start a discussion for larger changes or new features.
-- For bug reports, include steps to reproduce, the browser and OS, the location
-  input used, and any relevant console output.
-
-## Pull Requests
-
-- Keep PRs small and scoped to a single purpose.
-- Use clear titles and a detailed description. Reference the issue number when
-  applicable (e.g. "Fixes #123").
-- Describe how you tested the change, and include screenshots when it affects
-  the UI.
-
-## Commit messages
-
-- Use concise messages describing the change. Example formats:
-  - `fix: correct compass direction for due-west wind`
-  - `feat: add cloud-cover detail tile`
-
-## License and conduct
-
-- By contributing you agree your contributions will be licensed under the
-  repository's MIT License (see [`LICENSE`](LICENSE.md)).
-- Be respectful in issues and PRs.
-
-## Contact
-
-If you need to reach the maintainer directly, use <contact@zlatanstajic.com>.
-
-Thanks — we appreciate your help improving the app!
+By contributing, you agree that your contribution will be licensed under the
+repository's [MIT License](LICENSE.md). Be respectful in issues and pull
+requests.

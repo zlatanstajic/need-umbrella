@@ -41,6 +41,7 @@ export interface StoreData {
   compare?: CompareState;
   forecast?: boolean;
   rainThreshold?: RainThresholdState;
+  showLocationTime?: boolean;
 }
 export type StoreKey = keyof StoreData;
 
@@ -103,6 +104,12 @@ export type LangBundle = { [key: string]: LangEntry };
 // except the ones the code treats as always-present (badge/emoji/... /chart).
 export interface Slot {
   badge: HTMLElement;
+  timeBox?: HTMLElement;
+  timeValue?: HTMLElement;
+  timeDate?: HTMLElement;
+  timeZone?: string;
+  timeLat?: number;
+  timeLon?: number;
   emoji: HTMLElement;
   temp: HTMLElement;
   desc: HTMLElement;

@@ -61,6 +61,8 @@ describe("store.get / store.set", function () {
     expect(store.get("selectorCollapsed", true)).toBe(false);
     saveStore({ forecast: false });
     expect(store.get("forecast", true)).toBe(false);
+    saveStore({ showLocationTime: false });
+    expect(store.get("showLocationTime", true)).toBe(false);
   });
   it("returns a stored null rather than the fallback", function () {
     saveStore({ loc: null });
@@ -70,5 +72,11 @@ describe("store.get / store.set", function () {
     store.set("lang", "en");
     store.set("forecast", true);
     expect(loadStore()).toEqual({ lang: "en", forecast: true });
+  });
+  it("round-trips strict location-time booleans", function () {
+    store.set("showLocationTime", false);
+    expect(loadStore().showLocationTime).toBe(false);
+    store.set("showLocationTime", true);
+    expect(loadStore().showLocationTime).toBe(true);
   });
 });

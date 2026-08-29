@@ -33,6 +33,49 @@ import {
 } from "./forecast";
 import { exportData, handleImportFile } from "./data";
 import { clampThreshold, readRainThreshold, saveRainThreshold } from "./threshold";
+import {
+  LocationTimeUpdater,
+  normalizeShowLocationTime,
+  resetTimeTarget,
+  setTargetCoordinates,
+  targetCoordinatesMatch
+} from "./time";
+import { LatestRequestCoordinator } from "./weather-request";
+
+// ---- Live location time -------------------------------------------------
+// One updater owns both slots. It formats from a fresh Date at each aligned
+// second boundary, so tab throttling and daylight-saving changes cannot make
+// the displayed clock drift.
+var showLocationTime = normalizeShowLocationTime(store.get("showLocationTime", undefined));
+var primaryRequests = new LatestRequestCoordinator();
+var secondaryRequests = new LatestRequestCoordinator();
+var timeUpdater = new LocationTimeUpdater(
+  function () {
+    if (!showLocationTime) { return []; }
+    var targets = primarySlot.timeZone ? [primarySlot] : [];
+    if (compareMode && secondarySlot.timeZone) { targets.push(secondarySlot); }
+    return targets;
+  },
+  function () { return currentLang; }
+);
+
+function hideTimeTarget(slot: typeof primarySlot): void {
+  if (slot.timeBox) { slot.timeBox.classList.add("hidden"); }
+}
+
+function syncLocationTimeUpdater(): void {
+  hideTimeTarget(primarySlot);
+  hideTimeTarget(secondarySlot);
+  if (!showLocationTime) {
+    timeUpdater.stop();
+    return;
+  }
+  if (!primarySlot.timeZone && !(compareMode && secondarySlot.timeZone)) {
+    timeUpdater.stop();
+    return;
+  }
+  timeUpdater.start();
+}
 
 // ---- Linked chart scroll (compare mode) ---------------------------------
 // When comparing, scrolling one rain chart scrolls the other in lockstep.
@@ -49,7 +92,8 @@ function linkChartScroll(source: HTMLElement, target: HTMLElement): void {
 linkChartScroll(primarySlot.chart, secondarySlot.chart);
 linkChartScroll(secondarySlot.chart, primarySlot.chart);
 
-function loadWeather(loc: LocationDescriptor): void {
+function loadWeather(loc: LocationDescriptor, preserveSameCoordinates?: boolean): void {
+  var requestToken = primaryRequests.begin();
   setCurrentLocation(loc);
   saveLocation(loc);
   refreshCityOptions();
@@ -57,17 +101,25 @@ function loadWeather(loc: LocationDescriptor): void {
   var c = coordsFor(loc);
   var lat = c.lat;
   var lon = c.lon;
+  var backgroundRefresh = !!preserveSameCoordinates && targetCoordinatesMatch(primarySlot, lat, lon);
 
-  showOnly(elLoading);
+  if (!targetCoordinatesMatch(primarySlot, lat, lon)) {
+    resetTimeTarget(primarySlot);
+    syncLocationTimeUpdater();
+  }
+
+  if (!backgroundRefresh) { showOnly(elLoading); }
 
   fetch(metUrl(lat, lon))
     .then(function (res) {
+      if (!primaryRequests.isCurrent(requestToken)) { return null; }
       if (!res.ok) {
         throw new Error(tf("httpError", res.status));
       }
       return res.json();
     })
-    .then(function (data: MetResponse) {
+    .then(function (data: MetResponse | null) {
+      if (!primaryRequests.isCurrent(requestToken) || !data) { return; }
       var timeseries = data &&
         data.properties &&
         data.properties.timeseries;
@@ -83,15 +135,17 @@ function loadWeather(loc: LocationDescriptor): void {
       primarySlot.timeseries = timeseries;
       if (forecastMode) { renderDaily(timeseries, primarySlot); }
       showOnly(elWeather);
+      setTargetCoordinates(primarySlot, lat, lon);
+      syncLocationTimeUpdater();
 
       // GPS / manual: resolve a readable place name and swap it into the
-      // badge. Guard on object identity so a stale lookup can't clobber a
+      // badge. Guard on the request token so a stale lookup can't clobber a
       // newer location. Keep the coord badge on any failure. A saved custom
       // title (already set by badgeFor) takes precedence — skip geocoding.
       if ((loc.type === "gps" || loc.type === "manual") && !savedNameFor(lat, lon)) {
         reverseGeocode(lat, lon)
           .then(function (place) {
-            if (place && currentLocation === loc) {
+            if (place && primaryRequests.isCurrent(requestToken)) {
               elBadge.textContent = place;
               if (primarySlot.chartLabel) { primarySlot.chartLabel.textContent = place; }
               if (forecastMode) { renderDaily(primarySlot.timeseries!, primarySlot); }
@@ -101,8 +155,10 @@ function loadWeather(loc: LocationDescriptor): void {
       }
     })
     .catch(function (err: Error) {
-      elError.textContent = t("errorPrefix") + err.message;
-      showOnly(elError);
+      primaryRequests.runErrorIfCurrent(requestToken, backgroundRefresh, function () {
+        elError.textContent = t("errorPrefix") + err.message;
+        showOnly(elError);
+      });
     });
 }
 
@@ -110,25 +166,33 @@ function loadWeather(loc: LocationDescriptor): void {
 // touch the city dropdown / save state, and does not drive the page title or
 // the loading/error state-swap (slot A owns the whole-view state). On error
 // the slot-B badge shows the message so slot A stays intact. Stale lookups
-// are guarded on secondaryLocation identity.
-function loadSecondary(loc: LocationDescriptor): void {
+// are guarded by a request version owned only by slot B.
+function loadSecondary(loc: LocationDescriptor, preserveSameCoordinates?: boolean): void {
+  var requestToken = secondaryRequests.begin();
   setSecondaryLocation(loc);
   saveCompareState();
   var c = coordsFor(loc);
   var lat = c.lat;
   var lon = c.lon;
+  var backgroundRefresh = !!preserveSameCoordinates && targetCoordinatesMatch(secondarySlot, lat, lon);
 
-  secondarySlot.badge.textContent = t("loading");
+  if (!targetCoordinatesMatch(secondarySlot, lat, lon)) {
+    resetTimeTarget(secondarySlot);
+    syncLocationTimeUpdater();
+  }
+
+  if (!backgroundRefresh) { secondarySlot.badge.textContent = t("loading"); }
 
   fetch(metUrl(lat, lon))
     .then(function (res) {
+      if (!secondaryRequests.isCurrent(requestToken)) { return null; }
       if (!res.ok) {
         throw new Error(tf("httpError", res.status));
       }
       return res.json();
     })
-    .then(function (data: MetResponse) {
-      if (secondaryLocation !== loc) { return; }
+    .then(function (data: MetResponse | null) {
+      if (!secondaryRequests.isCurrent(requestToken) || !data) { return; }
       var timeseries = data &&
         data.properties &&
         data.properties.timeseries;
@@ -142,11 +206,13 @@ function loadSecondary(loc: LocationDescriptor): void {
       // Stash for the daily view, same as the primary slot.
       secondarySlot.timeseries = timeseries;
       if (forecastMode && compareMode) { renderDaily(timeseries, secondarySlot); }
+      setTargetCoordinates(secondarySlot, lat, lon);
+      syncLocationTimeUpdater();
 
       if ((loc.type === "gps" || loc.type === "manual") && !savedNameFor(lat, lon)) {
         reverseGeocode(lat, lon)
           .then(function (place) {
-            if (place && secondaryLocation === loc) {
+            if (place && secondaryRequests.isCurrent(requestToken)) {
               secondarySlot.badge.textContent = place;
               if (secondarySlot.chartLabel) { secondarySlot.chartLabel.textContent = place; }
               if (forecastMode && compareMode) { renderDaily(secondarySlot.timeseries!, secondarySlot); }
@@ -156,9 +222,10 @@ function loadSecondary(loc: LocationDescriptor): void {
       }
     })
     .catch(function (err: Error) {
-      if (secondaryLocation !== loc) { return; }
-      secondarySlot.badge.textContent = t("errorPrefix") + err.message;
-      if (secondarySlot.summary) { secondarySlot.summary.textContent = ""; }
+      secondaryRequests.runErrorIfCurrent(requestToken, backgroundRefresh, function () {
+        secondarySlot.badge.textContent = t("errorPrefix") + err.message;
+        if (secondarySlot.summary) { secondarySlot.summary.textContent = ""; }
+      });
     });
 }
 
@@ -597,12 +664,13 @@ function setLanguage(lang: string | null): void {
   store.set("lang", lang);
   markActiveLang();
   applyStaticStrings();
+  timeUpdater.refresh();
   // Re-render saved chips so their place names reload in the new language.
   renderSavedLocations();
   // Re-fetch the current location so dynamic strings (description, banner,
   // badge) reflect the new language.
   if (currentLocation) {
-    loadWeather(currentLocation);
+    loadWeather(currentLocation, true);
   }
   // Re-localize the forecast rows now from the stashed timeseries so the
   // day-of-week / "Today" labels switch language even if the refetch fails
@@ -614,7 +682,7 @@ function setLanguage(lang: string | null): void {
   // it refreshes even when the slot-A fetch errors. Loaded exactly once per
   // language switch (the slot-B call no longer rides slot A's success path).
   if (compareMode && secondaryLocation) {
-    loadSecondary(secondaryLocation);
+    loadSecondary(secondaryLocation, true);
   }
 }
 
@@ -780,6 +848,7 @@ function applyCompareMode(on: boolean): void {
   elSelectorB.classList.toggle("hidden", !on || readSelectorCollapsed());
   elSlotCardB.classList.toggle("hidden", !on);
   elCompareCards.classList.toggle("compare-on", on);
+  syncLocationTimeUpdater();
 
   secondarySlot.precipBanner.classList.toggle("hidden", !on);
   secondarySlot.chart.classList.toggle("hidden", !on);
@@ -823,6 +892,27 @@ compareToggle.addEventListener("change", function () {
 // ---- 7-day forecast mode (persisted) -------------------------------------
 forecastToggle.addEventListener("change", function () {
   applyForecastMode(forecastToggle.checked);
+});
+
+// ---- Location time preference (persisted) -------------------------------
+var locationTimeToggle = el<HTMLInputElement>("location-time-toggle");
+
+function applyLocationTimePreference(on: boolean): void {
+  showLocationTime = on;
+  locationTimeToggle.checked = on;
+  syncLocationTimeUpdater();
+}
+
+locationTimeToggle.addEventListener("change", function () {
+  var on = locationTimeToggle.checked;
+  store.set("showLocationTime", on);
+  applyLocationTimePreference(on);
+});
+
+document.addEventListener("visibilitychange", function () {
+  if (!document.hidden && showLocationTime) {
+    timeUpdater.refresh();
+  }
 });
 
 // ---- Rain threshold (persisted) ------------------------------------------
@@ -915,6 +1005,7 @@ document.addEventListener("DOMContentLoaded", function () {
   applyStaticStrings();
   attachClearButtons();
   restoreRainThreshold();
+  applyLocationTimePreference(showLocationTime);
   renderSavedLocations();
   applySelectorCollapsed(readSelectorCollapsed());
   loadWeather(loadSavedLocation() || BELGRADE);

@@ -72,6 +72,12 @@ export function validateImport(obj: unknown): StoreData | null {
     sawKnownKey = true;
     out.forecast = !!src.forecast;
   }
+  if (Object.prototype.hasOwnProperty.call(src, "showLocationTime")) {
+    sawKnownKey = true;
+    if (typeof src.showLocationTime === "boolean") {
+      out.showLocationTime = src.showLocationTime;
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(src, "compare")) {
     sawKnownKey = true;
     var cmp = src.compare as { on?: unknown; loc?: unknown } | null;

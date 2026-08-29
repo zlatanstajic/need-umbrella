@@ -12,8 +12,8 @@ with an optional 7-day forecast toggle, bilingual (Serbian Latin / English).
 into [assets/js/app.js](assets/js/app.js) — a single IIFE targeting `es2017`.
 **There is a build step (`npm run build`), dev dependencies (`typescript`,
 `esbuild`, via [package.json](package.json) + `package-lock.json`), and a
-typecheck gate (`npm run typecheck`). Still no runtime dependencies and no
-test framework.** [assets/js/app.js](assets/js/app.js) is a **generated build
+typecheck gate (`npm run typecheck`). The sole runtime dependency is
+`tz-lookup`; Vitest provides the test framework.** [assets/js/app.js](assets/js/app.js) is a **generated build
 artifact** — it stays committed so a plain checkout runs without a build, but
 it is **never hand-edited**; all edits go in [src/](src/) and are rebuilt.
 Inside module bodies the code deliberately keeps the pre-ES6 house style
@@ -97,6 +97,11 @@ harmlessly under jsdom).
 ```bash
 npm run test           # vitest run (all suites, no coverage)
 npm run test:coverage  # vitest run --coverage (enforces the coverage gate)
+
+# single suite / single case (no npm script — call vitest directly)
+npx vitest run tests/util.test.ts
+npx vitest run -t "clampThreshold"    # name filter across suites
+npx vitest tests/render.test.ts       # watch mode while iterating
 ```
 
 Test files live in a top-level [tests/](tests/) directory as `*.test.ts` (e.g.
@@ -113,7 +118,8 @@ from `localStorage` at import time and several helpers read the local timezone
 
 Coverage is measured (v8 provider) over the logic modules only — the
 `coverage.include` set is `util`, `store`, `location`, `data`, `forecast`,
-`strings`, `constants`, `render`; `app.ts`, `dom.ts`, `state.ts`, `types.ts`,
+`strings`, `constants`, `render`, `threshold`, `time`, `weather-request`;
+`app.ts`, `dom.ts`, `state.ts`, `types.ts`,
 and `geo.ts` are excluded (DOM wiring / entry point / pure declarations). The
 gate is a **global** `thresholds: { lines: 90 }` (aggregate, not per-file):
 `render.ts`'s pure mappers and DOM builders are covered, but the small
@@ -145,9 +151,11 @@ by `lang|lat|lon`) so identical coords never re-fetch.
 
 **Persistence**: all persisted state lives in a single `localStorage` key,
 `nu:data`, holding one JSON object whose sub-keys are `lang`, `loc`, `geo`,
-`saved`, `selectorCollapsed`, `compare`, `forecast`, and `rainThreshold` (all
+`saved`, `selectorCollapsed`, `compare`, `forecast`, `rainThreshold`, and
+`showLocationTime` (all
 JSON; `selectorCollapsed` and `forecast` are real booleans, not `"1"`/`"0"`
-strings; `rainThreshold` is `{ on: boolean, mm: number }`).
+strings; `showLocationTime` is also a strict boolean and defaults to `true`;
+`rainThreshold` is `{ on: boolean, mm: number }`).
 Every read/write goes through the central accessor
 `store.get(subKey, fallback)` / `store.set(subKey, value)`, which is a
 read-modify-write of the single blob backed by `loadStore()` / `saveStore()`
@@ -161,8 +169,10 @@ coords to 4 decimals (`round4`), shows loading state, fetches, then calls
 `renderCurrent(timeseries[0], badgeFor(loc))` and `renderPrecip(timeseries)`.
 `badgeFor` composes the location-badge text in the active language; for GPS and
 manual it returns coords immediately, then an async `reverseGeocode` swaps in a
-place name (guarded on `currentLocation` identity so a stale lookup can't
-clobber a newer location). After `renderPrecip` runs, the page `<title>` and
+place name. Independent monotonically increasing request coordinators guard
+every primary and comparison success, reverse-geocode update, and error, so a
+superseded request cannot mutate either slot even when repeated reloads reuse
+the same descriptor object. After `renderPrecip` runs, the page `<title>` and
 `#header-title` are also dynamically updated to the rain (`headerRain`) or
 no-rain (`headerDry`) string from `STRINGS`.
 
@@ -217,6 +227,21 @@ The last-loaded location persists under the `loc` sub-key and is restored
 on `DOMContentLoaded` (validated by `loadSavedLocation`); Belgrade is the
 fallback.
 
+**Location time**: after a weather slot loads, [src/time.ts](src/time.ts)
+maps its coordinates to an IANA zone with `tz-lookup` and formats the current
+instant through `Intl.DateTimeFormat` (`sr-Latn-RS` or `en-GB`, Gregorian
+calendar, 24-hour cycle). One second-aligned updater owns both slots, formats
+from a fresh `Date` on every tick, and refreshes immediately after language
+changes or tab resume. The date line is based on numeric year/month/day parts
+and appears only when the selected zone's day differs from the browser's local
+day. Lookup or formatter failure hides only that clock. The global
+`showLocationTime` setting defaults to enabled, suspends the updater when off,
+and is validated as a strict boolean during import. Each target stores the
+normalized coordinates associated with its zone. A genuinely different target
+clears the old clock until its weather succeeds; a same-coordinate language
+reload refreshes the locale immediately and keeps existing weather and clock
+content visible if the background request is delayed or fails.
+
 **Compare two cities**: a toggle inside the **Settings modal**
 (`#compare-toggle`, driving `applyCompareMode`) enables a side-by-side
 comparison. Compare state **persists** under the `compare` sub-key (a JSON
@@ -234,7 +259,7 @@ slot-aware so the same render code fills either slot. Slot B is fed by `loadSeco
 `loadWeather` that fetches and renders into `secondarySlot` only; it does **not**
 touch the city dropdown / save state, or drive the loading/error state-swap
 (slot A owns the whole-view state). Stale
-slot-B fetches are guarded on `secondaryLocation` identity, and on error the
+slot-B fetches are guarded by the slot's request coordinator, and on error the
 slot-B badge shows the message so slot A stays intact. The second selector
 (`#selector-section-b`, shown only in compare mode) reuses all three input
 methods (GPS / City / Search) with independent tab wiring
@@ -412,6 +437,9 @@ src/location.ts    parseDescriptor, loadSavedLocation, save/loadCompareState,
 src/render.ts      symbolToEmoji, describe, renderCurrent, updateHeaderTitle,
                    renderPrecip (24h chart)
 src/forecast.ts    dailyBuckets, renderDaily, readForecastMode, applyForecastMode
+src/time.ts        coordinate zone lookup, localized time/date formatting,
+                   shared second-aligned updater
+src/weather-request.ts  independent latest-request coordinators for weather slots
 src/data.ts        exportData, validateImport, handleImportFile
 src/app.ts         ENTRY: DOM wiring, loadWeather / loadSecondary, tabs, GPS,
                    saved-list render, city dropdowns, search, setLanguage /
@@ -438,18 +466,28 @@ scripts/gen-og-image.py  Pillow generator for the 1200×630 og-image.png
 **Deploy / CI**).
 
 **Mutable-state pattern**: [src/state.ts](src/state.ts) owns `currentLang`,
-`currentLocation`, `compareMode`, `secondaryLocation`, `forecastMode`, and
-`syncingScroll`. Other modules **read** these as live ES-module bindings
-(imported directly) but **write** them only through the exported setters
-(`setCurrentLang()`, `setCurrentLocation()`, `setCompareMode()`,
-`setSecondaryLocation()`, `setForecastMode()`, `setSyncingScroll()`) — an
-imported binding can't be reassigned from outside its module, so every mutation
-site calls a setter. When adding state, follow this pattern.
+`currentLocation`, `compareMode`, `secondaryLocation`, `forecastMode`,
+`syncingScroll`, `rainThresholdOn`, and `rainThresholdMm`. Other modules
+**read** these as live ES-module bindings (imported directly) but **write**
+them only through the exported setters (`setCurrentLang()`,
+`setCurrentLocation()`, `setCompareMode()`, `setSecondaryLocation()`,
+`setForecastMode()`, `setSyncingScroll()`, `setRainThresholdOn()`,
+`setRainThresholdMm()`) — an imported binding can't be reassigned from outside
+its module, so every mutation site calls a setter. When adding state, follow
+this pattern. **Exception**: `showLocationTime` is a plain module-local `var`
+in [src/app.ts](src/app.ts) (with `normalizeShowLocationTime` +
+`applyLocationTimePreference`), not a `state.ts` binding — nothing outside the
+entry point reads it, since `time.ts` is driven by calls rather than by
+inspecting the flag.
 
 **Import graph is acyclic**, layered:
-`types` / `store` / `util` (leaves) → `state` → `strings` / `constants` /
-`geo` → `location` / `render` → `forecast` / `data` → `app` (entry). If two
-modules would need each other, hoist the shared thing down toward
+`types` / `store` / `util` / `weather-request` (leaves) → `state` → `strings` /
+`constants` / `geo` / `threshold` / `time` → `location` / `render` →
+`forecast` / `data` → `app` (entry). `weather-request` imports nothing;
+`threshold` sits above `state` (it reads the `rainThreshold*` live bindings)
+and `constants` sits above `state` too — which is exactly why `state.ts`
+inlines the `0.5` threshold default instead of importing it. If two modules
+would need each other, hoist the shared thing down toward
 `state`/`util`/`types` rather than introducing a cycle.
 
 ## Deploy / CI
@@ -469,5 +507,18 @@ type safety and tested logic at the cost of a build.
 **One-time manual prerequisite**: the repo's Pages **Source** must be set to
 **"GitHub Actions"** in Settings → Pages, or the `deploy-pages` step fails.
 
+**Branching**: contribution branches are
+`issues/<issue-number>-<short-description>` (lowercase kebab-case) off `master`
+(per [CONTRIBUTING.md](CONTRIBUTING.md)) — no `feature/`/`fix/` prefixes. A **Husky** pre-commit hook runs `npm test`; commits are the user's
+to make.
+
 Note: `.vscode/` is gitignored, so the committed VS Code color settings won't
 appear in clones.
+
+## Related docs
+
+- [AGENTS.md](AGENTS.md) — condensed agent-facing rules (editing discipline,
+  source ownership, verification order, git/secrets policy). This file is the
+  detailed architecture reference it points at; keep the two consistent.
+- [README.md](README.md) — user-facing feature tour and install notes.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow and PR checklist.

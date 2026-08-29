@@ -93,6 +93,12 @@ describe("validateImport", function () {
     expect(validateImport({ selectorCollapsed: 1, forecast: 0 }))
       .toEqual({ selectorCollapsed: true, forecast: false });
   });
+  it("keeps only a strict showLocationTime boolean", function () {
+    expect(validateImport({ showLocationTime: true })).toEqual({ showLocationTime: true });
+    expect(validateImport({ showLocationTime: false })).toEqual({ showLocationTime: false });
+    expect(validateImport({ showLocationTime: "false" })).toEqual({});
+    expect(validateImport({ showLocationTime: 0 })).toEqual({});
+  });
   it("keeps compare only with a valid slot-B descriptor", function () {
     expect(validateImport({ compare: { on: true, loc: { type: "gps", lat: 1, lon: 2 } } }))
       .toEqual({ compare: { on: true, loc: { type: "gps", lat: 1, lon: 2 } } });

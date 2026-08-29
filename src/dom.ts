@@ -28,6 +28,9 @@ export var elChart = el("chart");
 // secondary compare set without depending on the module-level singletons.
 export var primarySlot: Slot = {
   badge: elBadge,
+  timeBox: el("location-time"),
+  timeValue: el("location-time-value"),
+  timeDate: el("location-time-date"),
   emoji: elEmoji,
   temp: elTemp,
   desc: elDesc,
@@ -48,6 +51,9 @@ export var primarySlot: Slot = {
 // The secondary (compare) slot mirrors primarySlot's shape for the slot-B nodes.
 export var secondarySlot: Slot = {
   badge: el("b-location-badge"),
+  timeBox: el("b-location-time"),
+  timeValue: el("b-location-time-value"),
+  timeDate: el("b-location-time-date"),
   emoji: el("b-cur-emoji"),
   temp: el("b-cur-temp"),
   desc: el("b-cur-desc"),

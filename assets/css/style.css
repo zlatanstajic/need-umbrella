@@ -466,6 +466,34 @@
       justify-self: center;
     }
 
+    .location-time {
+      width: 100%;
+      min-height: 5rem;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: var(--panel-2);
+      border-radius: var(--radius);
+      padding: 0.65rem 1rem;
+      text-align: center;
+    }
+
+    .location-time-value {
+      display: block;
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      font-weight: 700;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .location-time-date {
+      margin-top: 0.2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
     .current {
       background: var(--panel);
       border-radius: var(--radius);

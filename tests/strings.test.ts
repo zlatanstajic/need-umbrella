@@ -22,6 +22,10 @@ describe("STRINGS parity", function () {
     expect((STRINGS.sr.days as string[]).length).toBe(7);
     expect((STRINGS.en.days as string[]).length).toBe(7);
   });
+  it("has bilingual location-time settings copy", function () {
+    expect(STRINGS.sr.locationTimeLabel).toBe("Vreme na lokaciji");
+    expect(STRINGS.en.locationTimeLabel).toBe("Location time");
+  });
 });
 
 describe("t", function () {

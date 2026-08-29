@@ -12,11 +12,15 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@types/tz-lookup": "^6.1.2",
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "^0.25.12",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "tz-lookup": "^6.1.25"
   }
 }

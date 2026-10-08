@@ -16,3 +16,6 @@ Thumbs.db
 node_modules/
 dist/
 coverage/
+
+# Files and folders
+brag-*

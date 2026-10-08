@@ -56,7 +56,9 @@ The **social preview image** `assets/img/og-image.png` (1200×630, dark-navy
 committed artifact generated deterministically by
 [scripts/gen-og-image.py](scripts/gen-og-image.py) (Pillow, umbrella drawn from
 primitives so it never depends on an emoji font). Regenerate with `python3
-scripts/gen-og-image.py`; output stays under 1 MB.
+scripts/gen-og-image.py`; output stays under 1 MB. A DejaVu Sans Bold or
+Liberation Sans Bold font must exist at a path in the generator's candidate
+list. Reproducing the same PNG requires the same font and rendering environment.
 
 **Post-deploy manual work (pending, not automated)**: Google Search Console
 site verification (add the verification `<meta>` when set up), sitemap
@@ -67,10 +69,10 @@ live.
 ## Develop / run
 
 The source of truth is [src/](src/); [assets/js/app.js](assets/js/app.js) is
-regenerated from it. First install the toolchain, then build:
+regenerated from it. Use Node.js 24 and npm to match CI, then install and build:
 
 ```bash
-npm install          # one-time: installs typescript + esbuild + vitest (dev only)
+npm ci               # installs locked toolchain and tz-lookup runtime data
 npm run typecheck    # tsc --noEmit (strict); must be clean
 npm run build        # esbuild bundles src/app.ts -> assets/js/app.js
 ```
@@ -128,11 +130,12 @@ gate is a **global** `thresholds: { lines: 90 }` (aggregate, not per-file):
 the aggregate still clears 90% comfortably (~96% lines).
 
 A **Husky** pre-commit hook ([.husky/pre-commit](.husky/pre-commit)) runs
-`npm test` before every commit, so a failing suite blocks the commit locally.
-Husky is installed by the `prepare` script (`husky`) on `npm install`; the
+`npm run typecheck && npm test` before every commit, so type errors or a failing
+suite block the commit locally.
+Husky is installed by the `prepare` script (`husky`) on `npm ci` or `npm install`; the
 generated `.husky/_/` wrapper is self-ignored and not committed. The hook runs
-only `npm test` (fast) — the coverage threshold and `typecheck` gates stay in CI
-(see **Deploy / CI**), which remains the source of truth.
+typecheck and tests — the coverage threshold and build gates run in CI
+(see **Deploy / CI**).
 
 ## Architecture
 
@@ -492,24 +495,30 @@ would need each other, hoist the shared thing down toward
 
 ## Deploy / CI
 
-Pushes to `master` (and manual `workflow_dispatch`) trigger
+Pull requests targeting `master`, pushes to `master`, and manual
+`workflow_dispatch` runs trigger
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml): `actions/checkout`
-→ `setup-node` (Node 20, npm cache) → `npm ci` → **`npm run typecheck`** →
-**`npm run test:coverage`** → **`npm run build`** → assemble a `_site/` publish
+→ `setup-node` (Node 24, npm cache) → `npm ci` → **`npm run typecheck`** →
+**`npm run test:coverage`** → **`npm run build`**. Only non-PR runs on
+`refs/heads/master` then assemble a `_site/` publish
 set (`index.html`, `assets/`, `.nojekyll`, plus root `robots.txt` and
 `sitemap.xml`) → upload via `actions/upload-pages-artifact` → deploy via `actions/deploy-pages` to GitHub
 Pages. `typecheck`, `test:coverage`, and `build` are CI gates (in that order): a
 type regression, a failing test, a coverage drop below the 90% line threshold,
 or a build failure blocks the deploy. This replaces the old push-to-`master`,
 zero-build "just serve the committed files" model — a deliberate tradeoff for
-type safety and tested logic at the cost of a build.
+type safety and tested logic at the cost of a build. PRs validate without
+uploading a Pages artifact or deploying. The build job has only `contents: read`;
+`pages: write` and `id-token: write` are scoped to the guarded deploy job.
+Validation concurrency is grouped by workflow/ref, while deployments share the
+`pages` concurrency group without cancelling an active deployment.
 
 **One-time manual prerequisite**: the repo's Pages **Source** must be set to
 **"GitHub Actions"** in Settings → Pages, or the `deploy-pages` step fails.
 
 **Branching**: contribution branches are
 `issues/<issue-number>-<short-description>` (lowercase kebab-case) off `master`
-(per [CONTRIBUTING.md](CONTRIBUTING.md)) — no `feature/`/`fix/` prefixes. A **Husky** pre-commit hook runs `npm test`; commits are the user's
+(per [CONTRIBUTING.md](CONTRIBUTING.md)) — no `feature/`/`fix/` prefixes. A **Husky** pre-commit hook runs typecheck and tests; commits are the user's
 to make.
 
 Note: `.vscode/` is gitignored, so the committed VS Code color settings won't

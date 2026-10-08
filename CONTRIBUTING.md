@@ -1,6 +1,12 @@
 # Contributing
 
-Contributions are welcome. To propose a change:
+Contributions are welcome.
+
+Use Node.js 24 and npm to match CI. Python 3 is needed only for the optional
+local static-server command below; social-image generation additionally needs
+Pillow and a font listed in [`scripts/gen-og-image.py`](scripts/gen-og-image.py).
+
+To propose a change:
 
 1. **Open an issue, fork, and branch.** Open or identify the issue for the
    change, fork the repository, then create a branch off `master`. Every
@@ -38,10 +44,11 @@ Contributions are welcome. To propose a change:
    affected behavior in a browser. For UI changes, check both languages,
    responsive layouts, persistence after reload, and the browser console.
 6. **Open a pull request.** Push the `issues/` branch and open a PR against
-   `master`. Keep the PR focused, link the issue (for example, `Fixes #123`),
+   `master`. PRs run typecheck, coverage, and build checks without deploying.
+   Keep the PR focused, link the issue (for example, `Fixes #123`),
    explain what changed and why, list the checks you ran, and include
    screenshots for visible UI changes.
 
 By contributing, you agree that your contribution will be licensed under the
 repository's [MIT License](LICENSE.md). Be respectful in issues and pull
-requests.
+requests and follow the [Code of Conduct](CODE_OF_CONDUCT.md).

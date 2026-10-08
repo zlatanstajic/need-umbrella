@@ -1,17 +1,17 @@
-name: Deploy to GitHub Pages
+name: Validate and deploy to GitHub Pages
 
 on:
+  pull_request:
+    branches: ["master"]
   push:
     branches: ["master"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -40,6 +40,7 @@ jobs:
         run: npm run build
 
       - name: Assemble publish directory
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         run: |
           mkdir -p _site
           cp index.html _site/
@@ -48,13 +49,21 @@ jobs:
           cp -r assets _site/
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v3
         with:
           path: "_site"
 
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

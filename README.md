@@ -55,8 +55,7 @@ the total amount for that window — no scrolling needed for the overview.
 1. **GPS** — tap the GPS chip to use your device location via the browser
    geolocation API. On denial, error, or unavailability it falls back to
    Belgrade with a notice.
-2. **City** — a dropdown of six preset cities (Belgrade, Novi Sad, Kragujevac,
-   Nis, Pozarevac, Jagodina) with verified coordinates, offered as a
+2. **City** — a dropdown of ten preset cities (Belgrade, Novi Sad, Kragujevac, Nis, Pozarevac, Jagodina, Krusevac, Cacak, Uzice, Kraljevo) with coordinates, offered as a
    convenience shortcut. Option labels follow the active language.
 3. **Search** — type a place name and press Enter; results are fetched from the
    [Nominatim / OpenStreetMap](https://nominatim.openstreetmap.org/) geocoding

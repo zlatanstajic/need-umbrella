@@ -1,13 +1,14 @@
 # Repository Instructions
 
 These instructions apply to every agent working in this repository.
+`AGENTS.md` is the single source of shared project guidance; `CLAUDE.md` imports it.
 
 ## Before editing
 
 - Read a file before changing it.
 - Search all callers before changing a function or shared type. Use `rg` or
   `rg --files` for discovery.
-- Read [`CLAUDE.md`](CLAUDE.md) for detailed architecture and behavior before
+- Read the Architecture and Source layout / build sections below before
   making non-trivial application changes.
 - Preserve existing user changes and keep unrelated work out of the patch.
 
@@ -27,14 +28,10 @@ These instructions apply to every agent working in this repository.
 
 ## Coding conventions
 
-- Keep TypeScript strict and reuse existing domain types.
 - Inside module bodies, match the established pre-ES6 style: use `var`,
   function declarations, and string concatenation; avoid `let`, `const`, arrow
   functions, and template literals. Module-level imports, exports, and type
   annotations are expected.
-- Put every user-facing string in both language bundles in
-  [`src/strings.ts`](src/strings.ts): Serbian Latin (`sr`) and English (`en`).
-- Build UI with DOM methods instead of `innerHTML`.
 - Reuse CSS custom properties from `:root` rather than hard-coding colors.
 - Route persisted state through the central `store.get` / `store.set` API and
   keep the single `nu:data` storage schema backward-compatible.
@@ -42,6 +39,52 @@ These instructions apply to every agent working in this repository.
 - Guard asynchronous weather and geocoding results against stale requests.
 - Do not add a dependency, framework, backend, or build-system change without
   explicit approval.
+
+- **i18n**: all user-facing strings live in [src/strings.ts](src/strings.ts), in the `STRINGS` dictionary
+  (`STRINGS.sr` Latin / `STRINGS.en`). `currentLang` (default `sr`, persisted
+  under the `lang` sub-key of `nu:data`) selects the active bundle; `t(key)` reads
+  plain strings and `tf(key, ...args)` calls function-valued entries (string
+  concatenation, no template literals). Static DOM nodes carry `data-i18n` /
+  `data-i18n-placeholder` hooks applied by `applyStaticStrings()`. `setLanguage`
+  persists the choice, re-applies static strings, and re-fetches the current
+  location so dynamic text reloads. Add any new string to **both** language
+  bundles. **Deliberate exceptions** (not localized): unit suffixes (`°C`, `%`,
+  `m/s`, `hPa`), the `--` placeholder, `degreesToCompass` abbreviations
+  (`N`/`NNE`/…, always English), and footer proper nouns/license labels
+  (`MET Norway`, `CC BY 4.0`).
+- **MET symbol_code mapping**: `symbolToEmoji` and `describe` both strip
+  `_day`/`_night`/`_polartwilight` suffixes, then look up a base code.
+  `symbolToEmoji` returns language-independent emoji; `describe` reads localized
+  labels from `STRINGS[currentLang].cond`. Keep the base-code set in
+  `symbolToEmoji` identical to the `cond` sets in both language bundles.
+  Unmatched codes fall back to `🌡️` / the localized "Current conditions"
+  (`condFallback`).
+- **Precipitation window**: `renderPrecip` floors `now` to the top of the
+  current hour so `timeseries[0]` is included, sums `next_1_hours` precip over
+  the next 24h. Boundary entries may lack `next_1_hours` — treated as 0 mm.
+  Rain banner triggers at `effectiveThreshold()` (the `PRECIP_THRESHOLD_MM`
+  baseline of 0.1 when the custom threshold is off).
+- **Rain-window summary**: `renderPrecip` also fills a per-slot summary span
+  (`#rain-summary-a` next to the shared `next24` `<h2>`, `#rain-summary-b` in
+  the slot-B chart block) with "(HH:00–HH:00, X mm)" — first hour at/above
+  `effectiveThreshold()` starts the window, first dry hour after it stops it
+  (end = when rain first stops, not last rainy hour; later rain spells not
+  shown). X mm is the window's own sum, not the 24h total (banner keeps the
+  24h total). Blank when no single hour reaches the threshold
+  (deliberately can diverge from the banner, which keys off the 24h *total*).
+  String is the function-valued `rainSummary` in both bundles; spacing comes
+  from CSS (`.rain-summary` margin), not the string. The span stays adjacent to
+  (not inside) the `h2` because `applyStaticStrings` overwrites `[data-i18n]`
+  nodes' `textContent`. `loadSecondary`'s error path clears the slot-B summary.
+  Hour labels (summary + chart) share the `hourText(ms)` helper.
+- **Chart** is built with DOM methods only (`createElement`/`appendChild`), no
+  `innerHTML` — preserve this; bar heights are percentages of the window max.
+- **Types**: domain types live in [src/types.ts](src/types.ts); reuse them.
+  Two deliberate `any`s exist, both on the i18n dictionary boundary (`t()`'s
+  return and the `LangEntry` function arm) — never on weather / location /
+  store domain data. `getElementById` results are cast via the `el<T>()`
+  helper; a handful of `!` non-null assertions cover always-present static
+  nodes. Keep new code strict-clean (`npm run typecheck` must stay at 0).
 
 ## Testing and verification
 
@@ -69,10 +112,82 @@ For UI changes, also verify the affected behavior in a browser when practical:
 Use fake timers and explicit system times for time-dependent tests. Keep test
 fixtures timezone-independent.
 
+
+### Develop / run
+
+The source of truth is [src/](src/); [assets/js/app.js](assets/js/app.js) is
+regenerated from it. Use Node.js 24 and npm to match CI, then install and build:
+
+```bash
+npm ci               # installs locked toolchain and tz-lookup runtime data
+npm run typecheck    # tsc --noEmit (strict); must be clean
+npm run build        # esbuild bundles src/app.ts -> assets/js/app.js
+```
+
+Then serve the static site (still no server-side anything):
+
+```bash
+python3 -m http.server 8000   # then visit http://localhost:8000
+```
+
+There is no lint command. There **is** a test suite (see **Test / coverage**
+below). Edit [src/](src/), run `npm run build`, and validate by loading in a
+browser. Never edit [assets/js/app.js](assets/js/app.js) by hand — the next
+build overwrites it.
+
+### Test / coverage
+
+Tests run with **Vitest** in a **jsdom** environment (config in
+[vitest.config.ts](vitest.config.ts)); jsdom is mandatory because importing
+`render.ts` / `forecast.ts` transitively pulls in `dom.ts`, which calls
+`document.getElementById(...)` at module top level (those return `null`
+harmlessly under jsdom).
+
+```bash
+npm run test           # vitest run (all suites, no coverage)
+npm run test:coverage  # vitest run --coverage (enforces the coverage gate)
+
+# single suite / single case (no npm script — call vitest directly)
+npx vitest run tests/util.test.ts
+npx vitest run -t "clampThreshold"    # name filter across suites
+npx vitest tests/render.test.ts       # watch mode while iterating
+```
+
+Test files live in a top-level [tests/](tests/) directory as `*.test.ts` (e.g.
+[tests/util.test.ts](tests/util.test.ts)), importing the modules under test via
+`../src/…`. Tests run against the TypeScript source under [src/](src/), never
+the shipped [assets/js/app.js](assets/js/app.js) bundle. [tsconfig.json](tsconfig.json)'s
+`include` covers both `src/**/*` and `tests/**/*` so `npm run typecheck` also
+type-checks the suite. Because `currentLang` initializes
+from `localStorage` at import time and several helpers read the local timezone
+(`hourText`, `dailyBuckets`), suites reset `setCurrentLang("sr")` /
+`localStorage.clear()` in `beforeEach` and control the clock with
+`vi.useFakeTimers()` + `vi.setSystemTime(...)`, building fixture timestamps via
+`new Date(y, mo, d, h, ...)` (local) so they stay TZ-independent.
+
+Coverage is measured (v8 provider) over the logic modules only — the
+`coverage.include` set is `util`, `store`, `location`, `data`, `forecast`,
+`strings`, `constants`, `render`, `threshold`, `time`, `weather-request`;
+`app.ts`, `dom.ts`, `state.ts`, `types.ts`,
+and `geo.ts` are excluded (DOM wiring / entry point / pure declarations). The
+gate is a **global** `thresholds: { lines: 90 }` (aggregate, not per-file):
+`render.ts`'s pure mappers and DOM builders are covered, but the small
+`applyForecastMode` DOM-wiring tail in `forecast.ts` is untestable under jsdom
+(it dereferences always-present `!`-asserted nodes that are `null` in tests) —
+the aggregate still clears 90% comfortably (~96% lines).
+
+A **Husky** pre-commit hook ([.husky/pre-commit](.husky/pre-commit)) runs
+`npm run typecheck && npm test` before every commit, so type errors or a failing
+suite block the commit locally.
+Husky is installed by the `prepare` script (`husky`) on `npm ci` or `npm install`; the
+generated `.husky/_/` wrapper is self-ignored and not committed. The hook runs
+typecheck and tests — the coverage threshold and build gates run in CI
+(see **Deploy / CI**).
+
 ## Documentation and generated output
 
 - Keep [`README.md`](README.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), and
-  [`CLAUDE.md`](CLAUDE.md) synchronized with behavior and workflow changes.
+  [`AGENTS.md`](AGENTS.md) synchronized with behavior and workflow changes.
 - After TypeScript changes, include the rebuilt `assets/js/app.js` in the
   working tree.
 - Keep social metadata URLs rooted at
@@ -95,3 +210,411 @@ fixtures timezone-independent.
 - Never expose secrets in code, logs, tests, or chat output.
 - Use environment variables for sensitive values and ask the user for access
   when a task requires a secret.
+
+
+## What this is
+
+
+Single-page worldwide weather app — current conditions + 24h rain outlook,
+with an optional 7-day forecast toggle, bilingual (Serbian Latin / English).
+[index.html](index.html) holds only markup; CSS lives in
+[assets/css/style.css](assets/css/style.css). The app logic is **TypeScript
+(strict)** under [src/](src/), split into ES modules and bundled by esbuild
+into [assets/js/app.js](assets/js/app.js) — a single IIFE targeting `es2017`.
+**There is a build step (`npm run build`), dev dependencies (`typescript`,
+`esbuild`, via [package.json](package.json) + `package-lock.json`), and a
+typecheck gate (`npm run typecheck`). The sole runtime dependency is
+`tz-lookup`; Vitest provides the test framework.** [assets/js/app.js](assets/js/app.js) is a **generated build
+artifact** — it stays committed so a plain checkout runs without a build, but
+it is **never hand-edited**; all edits go in [src/](src/) and are rebuilt.
+Deployed via GitHub Pages (`.nojekyll` present) at
+https://zlatanstajic.github.io/need-umbrella/. The previous guidance identifies `pre-typescript-vanilla` as the last
+vanilla-ES5 (pre-conversion) rollback tag; it is absent from the local tag list,
+so verify its availability before relying on it.
+
+The `<head>` carries Apple PWA meta tags (`apple-mobile-web-app-capable`,
+`apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`) and a
+`<link rel="apple-touch-icon">` pointing to
+`assets/img/apple-touch-icon.png` (180×180, dark-navy background with the
+cyan umbrella glyph, generated by a Python script). A `theme-color` meta tag
+covers Android Chrome. These are static tags — no manifest file is needed.
+
+The `<head>` also carries a full block of **SEO / social-sharing tags** (all
+static, JS-free): `<meta name="description">`, `<link rel="canonical">` and
+`<meta name="robots" content="index,follow">`; a complete **Open Graph** block
+(`og:type`/`og:site_name`/`og:title`/`og:description`/`og:url`/`og:image`
++ `og:image:width`/`height`/`alt`, `og:locale=en_US`,
+`og:locale:alternate=sr_RS`); a **Twitter Card** block
+(`twitter:card=summary_large_image`, `twitter:title`/`description`/`image`);
+and a **JSON-LD** `<script type="application/ld+json">` describing a
+`WebApplication` (category `WeatherApplication`, free `Offer`). Every absolute
+URL in these tags points at the deploy base `https://zlatanstajic.github.io/
+need-umbrella/` and **must carry the `/need-umbrella/` path segment** — the
+`og:image`/`twitter:image` both reference
+`…/need-umbrella/assets/img/og-image.png`. **One-language-head constraint**:
+`<html lang="en">` and all head text are deliberately English-only (widest
+github.io reach) even though the app's runtime i18n defaults to Serbian; the
+Serbian audience is advertised only via `og:locale:alternate=sr_RS`, not a
+second head. A short HTML comment in the head records this intent. When editing
+head strings, keep the description consistent across the plain
+`description`/`og:description`/`twitter:description`/JSON-LD copies, and keep
+the JSON-LD valid (no trailing commas).
+
+The **social preview image** `assets/img/og-image.png` (1200×630, dark-navy
+`#0f172a` with the cyan `#22d3ee` umbrella + "Need Umbrella?" wordmark) is a
+committed artifact generated deterministically by
+[scripts/gen-og-image.py](scripts/gen-og-image.py) (Pillow, umbrella drawn from
+primitives so it never depends on an emoji font). Regenerate with `python3
+scripts/gen-og-image.py`; output stays under 1 MB. A DejaVu Sans Bold or
+Liberation Sans Bold font must exist at a path in the generator's candidate
+list. Reproducing the same PNG requires the same font and rendering environment.
+
+**Post-deploy manual work (pending, not automated)**: Google Search Console
+site verification (add the verification `<meta>` when set up), sitemap
+submission, and validating link previews via Facebook Sharing Debugger, X
+Card Validator, LinkedIn Post Inspector, and opengraph.xyz once the site is
+live.
+
+## Architecture
+
+
+The logic lives in the TypeScript modules under [src/](src/) (see **Source
+layout / build** below); esbuild bundles them into the single
+[assets/js/app.js](assets/js/app.js), loaded via one
+`<script src="assets/js/app.js">` at the end of `<body>`. The function and
+data-flow descriptions below refer to that logic wherever it now resides in
+`src/`. Weather data
+source: MET Norway Locationforecast 2.0 **compact** endpoint
+(`api.met.no/.../compact?lat=&lon=`). No API key. GPS and manual coordinates
+are reverse-geocoded to a place name via BigDataCloud's key-less, browser-CORS
+`reverse-geocode-client` endpoint (`reverseGeocode`); failure keeps the
+coordinate badge. Resolved names are cached under the `geo` sub-key (keyed
+by `lang|lat|lon`) so identical coords never re-fetch.
+
+**Persistence**: all persisted state lives in a single `localStorage` key,
+`nu:data`, holding one JSON object whose sub-keys are `lang`, `loc`, `geo`,
+`saved`, `selectorCollapsed`, `compare`, `forecast`, `rainThreshold`, and
+`showLocationTime` (all
+JSON; `selectorCollapsed` and `forecast` are real booleans, not `"1"`/`"0"`
+strings; `showLocationTime` is also a strict boolean and defaults to `true`;
+`rainThreshold` is `{ on: boolean, mm: number }`).
+Every read/write goes through the central accessor
+`store.get(subKey, fallback)` / `store.set(subKey, value)`, which is a
+read-modify-write of the single blob backed by `loadStore()` / `saveStore()`
+(both try/catch-wrapped; `loadStore` returns `{}` on absent/parse-fail). A
+fresh user gets `nu:data` created only on the first real `store.set`.
+
+Core flow: `loadWeather(loc)` is the one entry point — `loc` is a location
+descriptor (`{ type: "city", cityIndex }`, `{ type: "gps", lat, lon }`, or
+`{ type: "manual", lat, lon }`). It stores `loc` in `currentLocation`, rounds
+coords to 4 decimals (`round4`), shows loading state, fetches, then calls
+`renderCurrent(timeseries[0], badgeFor(loc))` and `renderPrecip(timeseries)`.
+`badgeFor` composes the location-badge text in the active language; for GPS and
+manual it returns coords immediately, then an async `reverseGeocode` swaps in a
+place name. Independent monotonically increasing request coordinators guard
+every primary and comparison success, reverse-geocode update, and error, so a
+superseded request cannot mutate either slot even when repeated reloads reuse
+the same descriptor object. After `renderPrecip` runs, the page `<title>` and
+`#header-title` are also dynamically updated to the rain (`headerRain`) or
+no-rain (`headerDry`) string from `STRINGS`.
+
+UI is state-swapping, not a framework: `showOnly(el)` toggles `.hidden` across
+the loading / error / weather sections. `showNotice`/`clearNotice` drive the
+amber fallback banner.
+
+Three location inputs all funnel into `loadWeather`:
+- **GPS** — `navigator.geolocation`, triggered from a chip (not a plain button).
+  Any denial/error/unavailable falls back to the `BELGRADE` descriptor
+  (`CITIES[0]`) with a notice. The GPS tab also hosts the "Save location"
+  button (`#save-btn`).
+- **City** — dropdown built from the `CITIES` array (index is the option value);
+  labels are rebuilt per language by `refreshCityOptions`.
+- **Search** — free-text place-name lookup via the Nominatim/OpenStreetMap
+  geocoding API (`nominatim.openstreetmap.org/search`), up to 6 results shown
+  as clickable buttons; Enter key triggers the search. Also has a
+  `#save-search-btn` ("Save location") that behaves identically to the GPS
+  tab's save button.
+
+(There is no manual lat/lon entry tab; the `type: "manual"` location descriptor
+is still used internally for saved-chip and search-result picks — see below.)
+
+The whole selector section (`#selector-section`) can be hidden or shown via a
+toggle inside the **Settings modal** (`#selector-vis-toggle`). The visibility
+state persists under the `selectorCollapsed` sub-key (boolean `true` = hidden,
+`false` or absent = visible) and defaults to visible on first visit;
+`applySelectorCollapsed(collapsed)` syncs the DOM and the toggle checkbox.
+
+The **Settings modal** is opened by a fixed gear button (`#settings-open`,
+positioned top-right) and closed by `#settings-close`, the backdrop click, or
+Escape. It also hosts the language switcher (SR / EN buttons).
+
+**Saved locations**: a "Save location" button on the **GPS** tab stores the
+current custom coordinate (any non-city location — cities live in the dropdown) to a
+`localStorage` array (the `saved` sub-key, `[{lat, lon, name?}]`), rendered as clickable
+chips in the **GPS** tab's `#saved-list` by `renderSavedLocations`. The same
+list is mirrored into the slot-B GPS tab's `#b-saved-list` (compare mode) by the
+shared `renderSavedInto(listEl, onLoad)` helper; slot-A chips load via
+`loadWeather` and slot-B chips via `loadSecondary`. A chip's
+`name` (set via the ✎ rename modal `#rename-overlay`; empty clears it) is shown verbatim,
+otherwise the label reverse-geocodes (cached → instant). Each chip loads as a
+`manual` descriptor on click and carries ✎ to rename and ✕ to remove it. When a
+loaded GPS/manual location matches a saved entry with a `name`, that title wins
+in the location badge (`badgeFor` → `savedNameFor`) and reverse-geocoding is
+skipped.
+`refreshSaveState` disables the save button when the current location isn't a
+custom coordinate or is already saved. Coordinate validity for both the
+last-pick restore and the saved list is checked by the shared `validLatLon`.
+
+The last-loaded location persists under the `loc` sub-key and is restored
+on `DOMContentLoaded` (validated by `loadSavedLocation`); Belgrade is the
+fallback.
+
+**Location time**: after a weather slot loads, [src/time.ts](src/time.ts)
+maps its coordinates to an IANA zone with `tz-lookup` and formats the current
+instant through `Intl.DateTimeFormat` (`sr-Latn-RS` or `en-GB`, Gregorian
+calendar, 24-hour cycle). One second-aligned updater owns both slots, formats
+from a fresh `Date` on every tick, and refreshes immediately after language
+changes or tab resume. The date line is based on numeric year/month/day parts
+and appears only when the selected zone's day differs from the browser's local
+day. Lookup or formatter failure hides only that clock. The global
+`showLocationTime` setting defaults to enabled, suspends the updater when off,
+and is validated as a strict boolean during import. Each target stores the
+normalized coordinates associated with its zone. A genuinely different target
+clears the old clock until its weather succeeds; a same-coordinate language
+reload refreshes the locale immediately and keeps existing weather and clock
+content visible if the background request is delayed or fails.
+
+**Compare two cities**: a toggle inside the **Settings modal**
+(`#compare-toggle`, driving `applyCompareMode`) enables a side-by-side
+comparison. Compare state **persists** under the `compare` sub-key (a JSON
+`{ on, loc }` where `loc` is the slot-B descriptor): `compareMode` (bool) and
+`secondaryLocation` are saved by `saveCompareState` whenever the toggle flips
+(`applyCompareMode`) or slot B reloads (`loadSecondary`). On `DOMContentLoaded`,
+after the primary loads, `loadCompareState` validates the stored state (via the
+shared `parseDescriptor`) and, if compare was on with a valid slot-B descriptor,
+seeds `secondaryLocation` and re-enters compare mode. The two
+render targets are abstracted as slots: `primarySlot` (slot A, the default
+view) and `secondarySlot` (slot B), each bundling its badge / card / precip
+banner / chart / per-chart-label DOM nodes plus an `isRain` verdict.
+`renderCurrent(ts, name, slot)` and `renderPrecip(timeseries, slot)` are
+slot-aware so the same render code fills either slot. Slot B is fed by `loadSecondary(loc)` — a parallel of
+`loadWeather` that fetches and renders into `secondarySlot` only; it does **not**
+touch the city dropdown / save state, or drive the loading/error state-swap
+(slot A owns the whole-view state). Stale
+slot-B fetches are guarded by the slot's request coordinator, and on error the
+slot-B badge shows the message so slot A stays intact. The second selector
+(`#selector-section-b`, shown only in compare mode) reuses all three input
+methods (GPS / City / Search) with independent tab wiring
+(`refreshCityOptionsB`, etc.) and funnels into `loadSecondary` instead of
+`loadWeather`. Enabling compare with no slot-B pick yet seeds a sensible
+`defaultSecondary` (a different city than slot A when possible). The page
+`<title>` and `#header-title` rain indicator are recomputed by
+`updateHeaderTitle` from the slots' `isRain` verdicts: the umbrella ("need
+umbrella") message wins when the primary will rain, or — in compare mode — when
+**either** location will rain; toggling compare off drops slot B from the
+verdict. On a language switch, `setLanguage` reloads slot B directly
+(independent of slot A's fetch outcome) so it refreshes even when slot A errors,
+loaded exactly once per switch.
+
+**7-day forecast**: a toggle inside the **Settings modal** (`#forecast-toggle`,
+driving `applyForecastMode`) shows/hides `#forecast-section` alongside the
+existing 24h chart — additive, not a replacement. State persists under the
+`forecast` sub-key (boolean `true` = on) and is restored on
+`DOMContentLoaded`. Both slots are supported; slot B displays its forecast when compare mode
+is active. Each successful `loadWeather` or `loadSecondary` stashes the raw `timeseries` on
+`primarySlot.timeseries` or `secondarySlot.timeseries`, respectively, so toggling the forecast on doesn't require a
+refetch. `dailyBuckets(timeseries)` groups entries (from "now" onward) into up
+to 7 local-calendar-day buckets keyed by `year-month-date`, tracking min/max
+`air_temperature`, a summed precip total, and a representative `symbol_code`
+(the entry closest to local noon). Precip per entry prefers `next_1_hours`
+and falls back to `next_6_hours` only when the former is absent, so hourly-
+and 6-hourly-resolution regions of the timeseries tile without double-
+counting; because `next_6_hours` blocks are UTC-aligned while bucketing keys
+on local calendar days, there's a small known/documented over- or under-count
+at 6h-region day boundaries in non-UTC timezones. `renderDaily(timeseries, slot)`
+renders the buckets into the slot forecast list (`#forecast-list` for primary) via `createElement`/`appendChild`
+only (row 0 labeled with the localized "today" string, others with the
+localized short weekday from `STRINGS[currentLang].days`); a bucket with no
+`symbol_code` blanks both its emoji and description cells rather than
+falling back to the generic "current conditions" label. `setLanguage`
+re-renders the forecast directly from `primarySlot.timeseries` (guarded on
+`forecastMode` and the stash being present) so day labels re-localize even
+if the language-switch refetch fails.
+
+**Rain threshold**: a `.setting-row` in the **Settings modal** holds an
+enable/disable toggle (`#rain-threshold-toggle`) and a `type="number"` input
+(`#rain-threshold-input`, `min="0.1" max="100" step="0.1"`) letting the user
+raise the rain-verdict cutoff above the built-in `PRECIP_THRESHOLD_MM` (0.1 mm)
+baseline. State persists under the `rainThreshold` sub-key as `{ on, mm }`
+(default `{ on: false, mm: 0.5 }`) and is restored on `DOMContentLoaded`
+(`restoreRainThreshold` syncs the checkbox + input value and the live state
+bindings before the first verdict renders). The single helper
+`effectiveThreshold()` in [src/threshold.ts](src/threshold.ts) is the ONLY
+place the on/off decision lives — it returns `on ? clampThreshold(mm) :
+PRECIP_THRESHOLD_MM`, reading the `rainThresholdOn` / `rainThresholdMm` live
+state bindings so a toggle change takes effect without a refetch. Every rain
+verdict routes through it: `renderPrecip` uses it for both the 24h-total
+`isRain` compare and the per-hour rain-window start/stop, so raising the cutoff
+flips only verdicts — the real mm bars/amounts never change. When the raised
+threshold is actively **suppressing** real rain, `renderPrecip` shows a per-slot
+disclaimer in the "Next 24 hours" section (a `.threshold-note` div —
+`#threshold-note-a`/`#threshold-note-b`, wired as `slot.thresholdNote`) reading
+the localized `thresholdIgnored` string ("Rain threshold is on — precipitation
+below X mm is ignored"). It appears **only** when `rainThresholdOn && !isRain &&
+total >= PRECIP_THRESHOLD_MM` — i.e. the cutoff is on, the verdict flipped to
+dry, yet there's ≥ 0.1 mm of real precipitation being hidden; it stays hidden
+when it genuinely won't rain (no precip), when the threshold is off, and when
+the verdict is still rain. `clampThreshold`
+coerces NaN/non-finite input to the default (0.5) but clamps a genuine `0` to
+the minimum (0.1); the app.ts input handler treats a truly empty/cleared field
+as the default at the reading boundary (before `Number()`), not inside
+`clampThreshold`. Changing the toggle/input re-renders verdicts for both slots
+(`renderPrecip` + `renderDaily` when active) via `rerenderVerdicts` and calls
+`updateHeaderTitle`, no refetch. `validateImport` accepts the `rainThreshold`
+sub-key, coercing `on` to a real boolean and clamping `mm` via
+`clampThreshold`; a malformed/non-object value drops the key (still counting as
+a recognizable nu:data shape). The state bindings follow the state.ts setter
+pattern (`setRainThresholdOn` / `setRainThresholdMm`), initialized directly
+from `store.get` (not `readRainThreshold`) so `state` stays below `threshold`
+in the acyclic import graph.
+
+**Export / import data**: a "Data" (`dataLabel` / "Podaci") `.setting-row` at
+the bottom of the **Settings modal** carries an Export button
+(`#data-export-btn`) and an Import button (`#data-import-btn`) plus a hidden
+`<input type="file" id="data-import-input" accept="application/json,.json">`,
+making the single `nu:data` blob portable/recoverable. **Export** (`exportData`)
+reads the blob via `loadStore()`, pretty-prints it (`JSON.stringify(blob, null,
+2)`), and downloads it as `nu-data.json` via a `Blob`
+(`application/json`) + `URL.createObjectURL` + a transient anchor
+(append/click/remove, then `revokeObjectURL`); the whole body is try/catch-
+wrapped so missing storage/download APIs degrade quietly. **Import**: the
+button `.click()`s the hidden file input, whose `change` handler reads
+`files[0]` via `FileReader.readAsText`, `JSON.parse`s it (try/catch), and runs
+`validateImport`. `validateImport` reuses the read-side rules
+(`parseDescriptor` / `validLatLon`): it accepts only the known sub-keys
+(`lang` kept if `"sr"`/`"en"`; `loc` via `parseDescriptor`; `compare` →
+`{on: !!on, loc}` with `loc` via `parseDescriptor`; `saved` via `Array.isArray`
++ the same `validLatLon` filter as `readSavedLocations`;
+`selectorCollapsed`/`forecast` coerced to real booleans; `geo` kept if a plain
+object), silently drops unknown keys and individually-invalid entries, and
+returns `null` (→ native `alert(importInvalid)`, `nu:data` untouched) only when
+the root isn't a plain object or contains **zero** known sub-keys. On a valid
+payload it `saveStore`s the validated object and `location.reload()`s so all
+state re-renders — no confirmation prompt. The file input's `value` is always
+reset (`= ""`) after handling so re-picking the same file re-fires `change`.
+`importOk` is defined in both bundles but currently unused (reserved for a
+future non-reload path, since success reloads immediately).
+
+## Source layout / build
+
+
+TypeScript source under [src/](src/), bundled to the single
+[assets/js/app.js](assets/js/app.js) by esbuild. Modules:
+
+```
+src/types.ts       domain types/interfaces (LocationDescriptor, StoreData,
+                   SavedEntry, MET response, Slot, Lang/LangBundle/LangEntry)
+src/constants.ts   CITIES, BELGRADE, PRECIP_THRESHOLD_MM, cityName
+src/dom.ts         el<T>() helper, DOM element consts, primary/secondary slots,
+                   showOnly / showNotice / clearNotice
+src/util.ts        round4, hourText, degreesToCompass, validLatLon
+src/state.ts       mutable app state (see below)
+src/store.ts       STORE_KEY, loadStore/saveStore, store.get/set (nu:data blob)
+src/strings.ts     STRINGS dictionary, t, tf
+src/geo.ts         reverseGeocode + geo cache (readGeoCache/writeGeoCache)
+src/location.ts    parseDescriptor, loadSavedLocation, save/loadCompareState,
+                   read/writeSavedLocations, savedNameFor, coordsFor, metUrl,
+                   badgeFor
+src/render.ts      symbolToEmoji, describe, renderCurrent, updateHeaderTitle,
+                   renderPrecip (24h chart)
+src/forecast.ts    dailyBuckets, renderDaily, readForecastMode, applyForecastMode
+src/time.ts        coordinate zone lookup, localized time/date formatting,
+                   shared second-aligned updater
+src/weather-request.ts  independent latest-request coordinators for weather slots
+src/data.ts        exportData, validateImport, handleImportFile
+src/app.ts         ENTRY: DOM wiring, loadWeather / loadSecondary, tabs, GPS,
+                   saved-list render, city dropdowns, search, setLanguage /
+                   applyStaticStrings, settings & rename modals, selector
+                   visibility, applyCompareMode, forecast toggle, linkChartScroll,
+                   DOMContentLoaded restore flow
+```
+
+Static assets (unchanged by the conversion):
+
+```
+index.html            markup only
+assets/css/style.css  all styles
+assets/js/app.js      GENERATED build artifact (do not hand-edit)
+assets/img/           apple-touch-icon.png, og-image.png (social preview,
+                      generated by scripts/gen-og-image.py)
+robots.txt            crawl policy + Sitemap: line (repo root)
+sitemap.xml           single-URL sitemap (repo root)
+scripts/gen-og-image.py  Pillow generator for the 1200×630 og-image.png
+```
+
+`robots.txt` and `sitemap.xml` live at the **repo root** (not under
+`assets/`) and are copied into the publish set by the deploy workflow (see
+**Deploy / CI**).
+
+**Mutable-state pattern**: [src/state.ts](src/state.ts) owns `currentLang`,
+`currentLocation`, `compareMode`, `secondaryLocation`, `forecastMode`,
+`syncingScroll`, `rainThresholdOn`, and `rainThresholdMm`. Other modules
+**read** these as live ES-module bindings (imported directly) but **write**
+them only through the exported setters (`setCurrentLang()`,
+`setCurrentLocation()`, `setCompareMode()`, `setSecondaryLocation()`,
+`setForecastMode()`, `setSyncingScroll()`, `setRainThresholdOn()`,
+`setRainThresholdMm()`) — an imported binding can't be reassigned from outside
+its module, so every mutation site calls a setter. When adding state, follow
+this pattern. **Exception**: `showLocationTime` is a plain module-local `var`
+in [src/app.ts](src/app.ts) (with `normalizeShowLocationTime` +
+`applyLocationTimePreference`), not a `state.ts` binding — nothing outside the
+entry point reads it, since `time.ts` is driven by calls rather than by
+inspecting the flag.
+
+**Import graph is acyclic**, layered:
+`types` / `store` / `util` / `weather-request` (leaves) → `state` → `strings` /
+`constants` / `geo` / `threshold` / `time` → `location` / `render` →
+`forecast` / `data` → `app` (entry). `weather-request` imports nothing;
+`threshold` sits above `state` (it reads the `rainThreshold*` live bindings)
+and `constants` sits above `state` too — which is exactly why `state.ts`
+inlines the `0.5` threshold default instead of importing it. If two modules
+would need each other, hoist the shared thing down toward
+`state`/`util`/`types` rather than introducing a cycle.
+
+## Deploy / CI
+
+
+Pull requests targeting `master`, pushes to `master`, and manual
+`workflow_dispatch` runs trigger
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml): `actions/checkout`
+→ `setup-node` (Node 24, npm cache) → `npm ci` → **`npm run typecheck`** →
+**`npm run test:coverage`** → **`npm run build`**. Only non-PR runs on
+`refs/heads/master` then assemble a `_site/` publish
+set (`index.html`, `assets/`, `.nojekyll`, plus root `robots.txt` and
+`sitemap.xml`) → upload via `actions/upload-pages-artifact` → deploy via `actions/deploy-pages` to GitHub
+Pages. `typecheck`, `test:coverage`, and `build` are CI gates (in that order): a
+type regression, a failing test, a coverage drop below the 90% line threshold,
+or a build failure blocks the deploy. This replaces the old push-to-`master`,
+zero-build "just serve the committed files" model — a deliberate tradeoff for
+type safety and tested logic at the cost of a build. PRs validate without
+uploading a Pages artifact or deploying. The build job has only `contents: read`;
+`pages: write` and `id-token: write` are scoped to the guarded deploy job.
+Validation concurrency is grouped by workflow/ref, while deployments share the
+`pages` concurrency group without cancelling an active deployment.
+
+**One-time manual prerequisite**: the repo's Pages **Source** must be set to
+**"GitHub Actions"** in Settings → Pages, or the `deploy-pages` step fails.
+
+**Branching**: contribution branches are
+`issues/<issue-number>-<short-description>` (lowercase kebab-case) off `master`
+(per [CONTRIBUTING.md](CONTRIBUTING.md)) — no `feature/`/`fix/` prefixes. A **Husky** pre-commit hook runs typecheck and tests; commits are the user's
+to make.
+
+Note: `.vscode/` is gitignored, so the committed VS Code color settings won't
+appear in clones.
+
+## Related docs
+
+- [CLAUDE.md](CLAUDE.md) — Claude Code import of this shared guidance.
+- [README.md](README.md) — user-facing feature tour and install notes.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow and PR checklist.

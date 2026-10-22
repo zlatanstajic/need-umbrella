@@ -10,7 +10,11 @@ export var CITIES: City[] = [
   { key: "kragujevac", names: { sr: "Kragujevac", en: "Kragujevac" }, lat: 44.0128, lon: 20.9114 },
   { key: "nis", names: { sr: "Niš", en: "Nis" }, lat: 43.3209, lon: 21.8954 },
   { key: "pozarevac", names: { sr: "Požarevac", en: "Pozarevac" }, lat: 44.6212, lon: 21.1867 },
-  { key: "jagodina", names: { sr: "Jagodina", en: "Jagodina" }, lat: 43.9772, lon: 21.2611 }
+  { key: "jagodina", names: { sr: "Jagodina", en: "Jagodina" }, lat: 43.9772, lon: 21.2611 },
+  { key: "krusevac", names: { sr: "Kruševac", en: "Krusevac" }, lat: 43.5800, lon: 21.3339 },
+  { key: "cacak", names: { sr: "Čačak", en: "Cacak" }, lat: 43.8914, lon: 20.3497 },
+  { key: "uzice", names: { sr: "Užice", en: "Uzice" }, lat: 43.8556, lon: 19.8425 },
+  { key: "kraljevo", names: { sr: "Kraljevo", en: "Kraljevo" }, lat: 43.7231, lon: 20.6875 }
 ];
 
 // Default-load / GPS-fallback location descriptor (Belgrade is CITIES[0]).

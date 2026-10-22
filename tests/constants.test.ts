@@ -8,8 +8,8 @@ beforeEach(function () {
 });
 
 describe("CITIES / BELGRADE", function () {
-  it("has 6 cities with Belgrade at index 0", function () {
-    expect(CITIES.length).toBe(6);
+  it("has 10 cities with Belgrade at index 0", function () {
+    expect(CITIES.length).toBe(10);
     expect(CITIES[0].key).toBe("belgrade");
     expect(CITIES[0].lat).toBe(44.8176);
     expect(CITIES[0].lon).toBe(20.4633);

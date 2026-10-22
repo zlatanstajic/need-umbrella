@@ -25,7 +25,7 @@ To propose a change:
    both the Serbian Latin and English bundles in
    [`src/strings.ts`](src/strings.ts). Reuse existing CSS custom properties,
    and use DOM methods rather than `innerHTML` when building UI. See
-   [`CLAUDE.md`](CLAUDE.md) for the full architecture and conventions.
+   [`AGENTS.md`](AGENTS.md) for the full architecture and conventions.
 4. **Rebuild generated assets.** After changing TypeScript, run
    `npm run build` and include the regenerated `assets/js/app.js`. If the
    social-preview image changes, update
